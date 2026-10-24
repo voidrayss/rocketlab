@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RocketLab — CAD + Flight Simulator</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>→ RocketLab</h1>
+    <span class="tagline">Build it. Check stability. Fly it.</span>
+    <div class="tabs">
+      <button class="tab active" data-tab="build">Builder</button>
+      <button class="tab" data-tab="fly">Flight</button>
+    </div>
+  </header>
+
+  <!-- ===================== BUILDER VIEW ===================== -->
+  <main id="view-build" class="view active">
+    <section class="panel left-panel">
+      <h2>Components</h2>
+      <div class="add-buttons">
+        <button data-add="nose">+ Nose</button>
+        <button data-add="body">+ Body</button>
+        <button data-add="transition">+ Transition</button>
+        <button data-add="fins">+ Fins</button>
+      </div>
+      <ul id="component-list" class="component-list"></ul>
+
+      <h2>Motor</h2>
+      <select id="motor-select"></select>
+    </section>
+
+    <section class="panel center-panel">
+      <h2>Rocket</h2>
+      <canvas id="cad-canvas" width="400" height="640"></canvas>
+      <p class="hint">CG = blue ● &nbsp; CP = red ▲</p>
+    </section>
+
+    <section class="panel right-panel">
+      <h2>Selected Component</h2>
+      <div id="editor" class="editor">
+        <p class="muted">Select a component to edit its dimensions.</p>
+      </div>
+
+      <h2>Stability</h2>
+      <div id="stability" class="stability"></div>
+
+      <button id="launch-btn" class="launch-btn">🔥 Launch →</button>
+    </section>
+  </main>
+
+  <!-- ===================== FLIGHT VIEW ===================== -->
+  <main id="view-fly" class="view">
+    <section class="panel flight-panel">
+      <canvas id="flight-canvas" width="400" height="640"></canvas>
+    </section>
+    <section class="panel telemetry-panel">
+      <h2>Telemetry</h2>
+      <div id="telemetry" class="telemetry"></div>
+      <div class="flight-controls">
+        <button id="play-btn">▶ Play</button>
+        <button id="reset-btn">⟲ Reset</button>
+        <button id="back-btn">← Back to Builder</button>
+      </div>
+      <h2>Flight Summary</h2>
+      <div id="summary" class="summary"></div>
+    </section>
+    <section class="panel plot-panel">
+      <h2>Altitude vs. Time</h2>
+      <canvas id="plot-canvas" width="360" height="260"></canvas>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
