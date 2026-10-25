@@ -5,10 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RocketLab — CAD + Flight Simulator</title>
   <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Three.js is loaded at runtime from a CDN as an ES module. The 3D view
+       needs internet access to resolve these; the 2D view works offline. The
+       importmap lets js/viewer3d.js use the bare specifiers 'three' and
+       'three/addons/'. Pinned to a fixed version for reproducibility. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <header class="topbar">
-    <h1>→ RocketLab</h1>
+    <h1>🚀 RocketLab</h1>
     <span class="tagline">Build it. Check stability. Fly it.</span>
     <div class="tabs">
       <button class="tab active" data-tab="build">Builder</button>
@@ -30,12 +43,30 @@
 
       <h2>Motor</h2>
       <select id="motor-select"></select>
+
+      <!-- Onshape export seam (scaffolding). The live Onshape API is deferred
+           until API keys work, so this button only PREVIEWS the parametric
+           part definitions the pipeline would POST. It makes no network call
+           and cannot break the app if clicked. See js/onshape/*. -->
+      <h2>Onshape (coming soon)</h2>
+      <button id="onshape-preview-btn" class="onshape-btn">Preview parametric parts</button>
+      <div id="onshape-preview" class="onshape-preview" hidden></div>
     </section>
 
     <section class="panel center-panel">
       <h2>Rocket</h2>
-      <canvas id="cad-canvas" width="400" height="640"></canvas>
-      <p class="hint">CG = blue ● &nbsp; CP = red ▲</p>
+      <div class="view-toggle" role="group" aria-label="View mode">
+        <button id="view2d-btn" class="view-toggle-btn active" data-view="2d">2D</button>
+        <button id="view3d-btn" class="view-toggle-btn" data-view="3d">3D</button>
+      </div>
+      <div id="cad-2d" class="cad-view active">
+        <canvas id="cad-canvas" width="400" height="640"></canvas>
+        <p class="hint">CG = blue ● &nbsp; CP = red ▲</p>
+      </div>
+      <div id="cad-3d" class="cad-view">
+        <div id="viewer3d" class="viewer3d"></div>
+        <p class="hint">Drag to rotate &nbsp; scroll to zoom &nbsp; right-drag to pan</p>
+      </div>
     </section>
 
     <section class="panel right-panel">
@@ -48,6 +79,9 @@
       <div id="stability" class="stability"></div>
 
       <button id="launch-btn" class="launch-btn">🔥 Launch →</button>
+
+      <h2>Analysis &amp; Insights</h2>
+      <div id="analysis" class="analysis"></div>
     </section>
   </main>
 

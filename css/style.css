@@ -91,6 +91,43 @@ select, input[type="number"], input[type="text"] {
 
 canvas { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
 
+/* 2D / 3D view toggle above the center canvas */
+.view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+.view-toggle-btn {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 6px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.view-toggle-btn:hover { color: var(--text); }
+.view-toggle-btn.active { background: var(--accent); color: #111; }
+
+/* The two center views: only one is shown at a time. */
+.cad-view { display: none; flex-direction: column; align-items: center; }
+.cad-view.active { display: flex; }
+
+/* 3D container sized to match the 400x640 2D canvas area. */
+.viewer3d {
+  width: 400px;
+  height: 640px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.viewer3d canvas { border: none; border-radius: 10px; }
+
 .hint { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
 .muted { color: var(--muted); }
 
@@ -110,6 +147,35 @@ canvas { background: var(--panel-2); border: 1px solid var(--border); border-rad
 }
 .launch-btn:hover { filter: brightness(1.1); }
 
+/* Onshape export seam (scaffolding, no live API yet) */
+.onshape-btn {
+  width: 100%;
+  margin-top: 4px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.onshape-btn:hover { border-color: var(--accent-2); }
+.onshape-preview {
+  margin-top: 8px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Flight view */
 .flight-panel { width: 420px; display: flex; justify-content: center; }
 .telemetry-panel { width: 300px; }
@@ -123,3 +189,55 @@ canvas { background: var(--panel-2); border: 1px solid var(--border); border-rad
 .flight-controls { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
 
 .summary .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+
+/* Analysis & insights panel (FEAT-002) */
+.analysis {
+  margin-top: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.analysis .metric {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.analysis .metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.analysis .metric-label { font-weight: 600; font-size: 0.9rem; }
+.analysis .metric-value { color: var(--accent-2); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.analysis .metric-why { color: var(--muted); font-size: 0.8rem; margin-top: 4px; line-height: 1.35; }
+.analysis .metric-cite { color: var(--muted); font-size: 0.7rem; margin-top: 3px; font-style: italic; opacity: 0.8; }
+.analysis .breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 3px 0;
+}
+.analysis-warning {
+  background: rgba(255,92,92,0.15);
+  color: var(--bad);
+  border: 1px solid var(--bad);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+/* Low-key informational note (e.g. approximate motor curve disclosure). */
+.analysis-note {
+  background: rgba(77,163,255,0.12);
+  color: var(--text);
+  border: 1px solid rgba(77,163,255,0.5);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+/* Thin scrollbar for the analysis panel to match the dark theme. */
+.analysis::-webkit-scrollbar { width: 8px; }
+.analysis::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 8px; }

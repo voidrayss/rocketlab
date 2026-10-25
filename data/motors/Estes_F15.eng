@@ -1,0 +1,13 @@
+; Estes F15 - 29mm single-use black-powder motor (model class, no cert needed).
+; Included so the catalog spans the model-to-HPR boundary. Representative curve
+; transcribed from Estes / ThrustCurve.org data. Nominal ~50 N.s (F class).
+F15 29 114 0-4-6-8 0.0600 0.1010 Estes
+0.05 25.0
+0.10 16.0
+0.20 15.5
+0.50 15.0
+1.00 14.5
+2.00 14.0
+3.00 13.5
+3.40 13.0
+3.45 0.0

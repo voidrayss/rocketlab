@@ -12,19 +12,48 @@
 // ===========================================================================
 
 import { thrustAt, motorMassAt } from "./motors.js";
+// Circular import with aero.js (it imports `atmosphere` from here). Safe ONLY
+// because every use of massProperties/centerOfPressure below is lazy (inside a
+// function body), never at module top level. Do not call these while this
+// module is initializing or the cycle will read an undefined binding.
+import { massProperties, centerOfPressure } from "./aero.js";
+import { maxBodyDiameter, totalLength } from "./rocket.js";
 
 const G = 9.80665;          // gravity (m/s^2)
-const RHO0 = 1.225;         // air density at sea level (kg/m^3)
-const SCALE_HEIGHT = 8500;  // for a simple exponential atmosphere (m)
 
-// Simple exponential atmosphere so drag drops with altitude.
-function airDensity(altitude) {
-  if (altitude < 0) return RHO0;
-  return RHO0 * Math.exp(-altitude / SCALE_HEIGHT);
+// ---------------------------------------------------------------------------
+// International Standard Atmosphere (ISA) troposphere model (0 to 11 km).
+// This is the same model OpenRocket and aerospace texts use for low altitude.
+//   T   = 288.15 - 0.0065 * h          (temperature, K)
+//   p   = 101325 * (T / 288.15)^5.2559 (pressure, Pa)
+//   rho = p / (287.05 * T)             (density, kg/m^3, ideal gas)
+//   a   = sqrt(1.4 * 287.05 * T)       (speed of sound, m/s)
+// Reference: U.S. Standard Atmosphere, 1976 / ISO 2533.
+// ---------------------------------------------------------------------------
+const T0 = 288.15;          // sea-level temperature (K)
+const P0 = 101325;          // sea-level pressure (Pa)
+const LAPSE = 0.0065;       // tropospheric lapse rate (K/m)
+const R_AIR = 287.05;       // specific gas constant for dry air (J/kg/K)
+const GAMMA = 1.4;          // ratio of specific heats for air
+
+export function atmosphere(altitude) {
+  const h = Math.max(0, altitude);
+  const temperature = T0 - LAPSE * h;
+  const pressure = P0 * Math.pow(temperature / T0, 5.2559);
+  const density = pressure / (R_AIR * temperature);
+  const speedOfSound = Math.sqrt(GAMMA * R_AIR * temperature);
+  return { density, pressure, temperature, speedOfSound };
 }
 
-// Speed of sound (m/s) — roughly constant for low-altitude hobby flights.
-const SPEED_OF_SOUND = 343;
+// Air density (kg/m^3) at altitude, from the ISA model.
+function airDensity(altitude) {
+  return atmosphere(altitude).density;
+}
+
+// Speed of sound (m/s) at altitude, from the ISA model.
+function speedOfSound(altitude) {
+  return atmosphere(altitude).speedOfSound;
+}
 
 // Compute the derivative of the state. State = { y (altitude), v (velocity) }.
 // Positive v = moving up. Mass & thrust come from the motor at time t.
@@ -59,7 +88,8 @@ function derivative(state, t, ctx) {
   force -= Math.sign(v) * dragMag;
 
   const accel = force / mass;
-  return { dy: v, dv: accel, mass, thrust, rho, mach: speed / SPEED_OF_SOUND };
+  const vSound = speedOfSound(state.y);
+  return { dy: v, dv: accel, mass, thrust, rho, mach: speed / vSound, accel };
 }
 
 // One RK4 step. Returns the new state plus some telemetry from the midpoint.
@@ -83,7 +113,8 @@ function rk4Step(state, t, dt, ctx) {
 // ---------------------------------------------------------------------------
 export function simulateFlight({ motor, dryMass, Cd, area,
                                  useParachute = true, parachuteCd = 1.5,
-                                 parachuteArea = 0.5, dt = 0.01, tMax = 120 }) {
+                                 parachuteArea = 0.5, dt = 0.01, tMax = 120,
+                                 railLength = 1.0, rocket = null, motorX = null }) {
   const ctx = {
     motor, dryMass, Cd, area,
     parachute: { deployed: false, Cd: parachuteCd, area: parachuteArea },
@@ -94,10 +125,14 @@ export function simulateFlight({ motor, dryMass, Cd, area,
 
   const samples = [];
   let apogee = 0, apogeeTime = 0, maxV = 0, maxMach = 0;
+  let maxQ = 0, maxQTime = 0;        // peak dynamic pressure (Pa)
+  let maxAccel = 0;                  // peak |acceleration| during ascent (m/s^2)
+  let railExitVelocity = 0;          // velocity when the rocket clears the rail
+  let railCleared = false;
   let launched = false;
 
   while (t <= tMax) {
-    const { mass, thrust, mach } = derivative(state, t, ctx);
+    const { mass, thrust, mach, rho, accel } = derivative(state, t, ctx);
     const speed = Math.abs(state.v);
 
     samples.push({
@@ -109,6 +144,19 @@ export function simulateFlight({ motor, dryMass, Cd, area,
     if (state.y > apogee) { apogee = state.y; apogeeTime = t; }
     if (speed > maxV) maxV = speed;
     if (mach > maxMach) maxMach = mach;
+
+    // Dynamic pressure q = 0.5 * rho * v^2 (drives aero loads).
+    const q = 0.5 * rho * speed * speed;
+    if (q > maxQ) { maxQ = q; maxQTime = t; }
+
+    // Peak acceleration magnitude while still going up (thrust phase).
+    if (state.v >= 0 && Math.abs(accel) > maxAccel) maxAccel = Math.abs(accel);
+
+    // Record velocity as the rocket clears the launch rail.
+    if (!railCleared && state.y >= railLength) {
+      railExitVelocity = state.v;
+      railCleared = true;
+    }
 
     // Deploy parachute right after apogee (velocity turns negative).
     if (useParachute && !ctx.parachute.deployed && launched && state.v < 0) {
@@ -124,12 +172,71 @@ export function simulateFlight({ motor, dryMass, Cd, area,
     t += dt;
   }
 
+  // If the rocket never reached the rail length, use the peak upward velocity.
+  if (!railCleared) railExitVelocity = maxV;
+
+  // Thrust-to-weight ratio at liftoff: average thrust / initial weight. We use
+  // average (not peak) thrust so the ratio reflects the sustained lift over the
+  // boost, which is the figure the >=5 rule of thumb is stated against. The
+  // analysis.js explanation and citation describe this same average basis.
+  const liftoffMass = dryMass + motorMassAt(motor, 0);
+  const thrustToWeight = motor.avgThrust / (liftoffMass * G);
+
+  // Steady descent rate under the parachute: from the last descending samples
+  // (terminal velocity where drag balances weight). We take the median of the
+  // final descent speeds to smooth out numerical wiggle.
+  const descentRate = computeDescentRate(samples);
+
+  // Stability margin over the burn: the CG shifts forward as the (rear-mounted)
+  // propellant burns off, so the caliber margin changes during the thrust
+  // phase. We sample a handful of points from ignition to burnout.
+  const stabilityVsTime = computeStabilityVsTime(rocket, motor, motorX);
+
   return {
     samples,
     stats: {
       apogee, apogeeTime, maxV, maxMach,
       flightTime: t,
       burnoutTime: motor.burnTime,
+      thrustToWeight,
+      railExitVelocity,
+      railLength,
+      maxQ, maxQTime,
+      maxAcceleration: maxAccel / G,   // reported in g's
+      descentRate,
+      stabilityVsTime,
     },
   };
+}
+
+// Sample caliber stability margin across the motor burn. Returns [] when no
+// rocket model is supplied (e.g. a bare physics-only call).
+function computeStabilityVsTime(rocket, motor, motorX) {
+  if (!rocket) return [];
+  const { cp } = centerOfPressure(rocket);
+  const dRef = maxBodyDiameter(rocket);
+  // Default the motor position to the tail (~5 cm ahead of the aft end), which
+  // is where builder.js / main.js / analysis.js actually place it. A bare
+  // simulateFlight call that passes `rocket` but omits `motorX` would otherwise
+  // put the motor at the nose tip (x=0) and skew the stability curve.
+  const mx = motorX ?? Math.max(0, totalLength(rocket) - 0.05);
+  const nSamples = 6;
+  const out = [];
+  for (let i = 0; i < nSamples; i++) {
+    const tb = (motor.burnTime * i) / (nSamples - 1);
+    const mMass = motorMassAt(motor, tb);
+    const { cg } = massProperties(rocket, mMass, mx);
+    out.push({ t: tb, calibers: (cp - cg) / dRef });
+  }
+  return out;
+}
+
+// Steady descent rate: average downward speed over the latter part of the
+// descent, once the parachute is fully doing its job.
+function computeDescentRate(samples) {
+  const descending = samples.filter(s => s.parachute && s.v < 0 && s.y > 0);
+  if (descending.length === 0) return 0;
+  const tail = descending.slice(Math.floor(descending.length / 2));
+  const sum = tail.reduce((acc, s) => acc + Math.abs(s.v), 0);
+  return sum / tail.length;
 }

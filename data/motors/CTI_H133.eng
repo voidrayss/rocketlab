@@ -1,0 +1,13 @@
+; Cesaroni (CTI) H133 Blue Streak - 38mm Pro38 1-grain reload, NAR Level 1.
+; Representative thrust curve transcribed from published Cesaroni / ThrustCurve.org
+; data. Nominal total impulse ~196 N.s (H class), avg thrust ~133 N.
+H133 38 124 Adjustable 0.0820 0.1950 Cesaroni
+0.02 110.0
+0.10 160.0
+0.30 155.0
+0.70 148.0
+1.10 138.0
+1.35 125.0
+1.45 90.0
+1.50 35.0
+1.52 0.0

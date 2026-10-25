@@ -28,6 +28,28 @@ export const COMPONENT_TYPES = {
 let nextId = 1;
 function makeId() { return nextId++; }
 
+// ---------------------------------------------------------------------------
+// Nose cone shape families.
+//
+// We support the common model-rocket nose profiles. The legacy editor only
+// knew 'ogive' | 'cone' | 'blunt'; those are kept working. 'cone' is treated
+// as an alias for 'conical' and 'blunt' is treated as an elliptical-ish blunt
+// profile for drawing/analysis. The canonical family names are:
+//   conical, ogive (tangent ogive), vonKarman (LD-Haack), haack (LV-Haack),
+//   parabolic, elliptical.
+// ---------------------------------------------------------------------------
+export const NOSE_SHAPES = [
+  "conical", "ogive", "vonKarman", "haack", "parabolic", "elliptical",
+];
+
+// Map legacy / alias shape values onto a canonical family name.
+export function canonicalNoseShape(shape) {
+  if (shape === "cone") return "conical";   // legacy alias
+  if (shape === "blunt") return "elliptical"; // blunt approximated as elliptical
+  if (NOSE_SHAPES.includes(shape)) return shape;
+  return "ogive"; // safe default
+}
+
 // --- Factory helpers: each returns a plain object with sensible defaults. ---
 
 export function createNose({ length = 0.15, diameter = 0.05, shape = "ogive",
@@ -67,6 +89,82 @@ export function defaultRocket() {
     ],
     motorId: "C6",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Nose cone profile generator.
+//
+// Returns an array of {x, r} points sampled from tip (x = 0) to base (x = L),
+// where r is the local radius. Used for drawing and for wetted-area /
+// surface-of-revolution calculations in aero.js. All equations are the
+// standard nose-cone profiles (see e.g. Gary Crowell, "The Descriptive
+// Geometry of Nose Cones", 1996).
+//
+// Arguments:
+//   c       a nose component { length, diameter, shape }
+//   nPoints how many sample points to generate (>= 2)
+// ---------------------------------------------------------------------------
+export function noseConeProfile(c, nPoints = 24) {
+  const L = c.length;
+  const R = c.diameter / 2;
+  const n = Math.max(2, Math.floor(nPoints));
+  const shape = canonicalNoseShape(c.shape);
+  const pts = [];
+
+  // Tangent ogive radius: rho = (R^2 + L^2) / (2R).
+  const rho = (R * R + L * L) / (2 * R);
+
+  for (let i = 0; i < n; i++) {
+    const x = (L * i) / (n - 1);
+    const f = x / L; // normalized position 0..1 from tip
+    let r;
+
+    switch (shape) {
+      case "conical":
+        // Cone: r = R * x / L.
+        r = R * f;
+        break;
+
+      case "ogive": {
+        // Tangent ogive: r = sqrt(rho^2 - (L - x)^2) + R - rho.
+        const inner = rho * rho - (L - x) * (L - x);
+        r = Math.sqrt(Math.max(0, inner)) + R - rho;
+        break;
+      }
+
+      case "parabolic": {
+        // Parabolic series with K = 1 (full parabola):
+        // r = R * (2*(x/L) - K*(x/L)^2).
+        const K = 1;
+        r = R * (2 * f - K * f * f);
+        break;
+      }
+
+      case "elliptical":
+        // Elliptical (half ellipse): r = R * sqrt(1 - (1 - x/L)^2).
+        r = R * Math.sqrt(Math.max(0, 1 - (1 - f) * (1 - f)));
+        break;
+
+      case "vonKarman":
+      case "haack": {
+        // Haack series. theta = acos(1 - 2x/L);
+        // r = R/sqrt(PI) * sqrt(theta - sin(2 theta)/2 + C * sin^3(theta)).
+        // C = 0 is the LD-Haack (von Karman, minimum drag for given L&R).
+        // C = 1/3 is the LV-Haack.
+        const C = shape === "vonKarman" ? 0 : 1 / 3;
+        const theta = Math.acos(Math.min(1, Math.max(-1, 1 - 2 * f)));
+        const inner = theta - Math.sin(2 * theta) / 2 + C * Math.sin(theta) ** 3;
+        r = (R / Math.sqrt(Math.PI)) * Math.sqrt(Math.max(0, inner));
+        break;
+      }
+
+      default:
+        r = R * f; // conical fallback
+    }
+
+    pts.push({ x, r });
+  }
+  return pts;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,15 @@
+; Cesaroni (CTI) J145 Smoky Sam - 38mm Pro38 6-grain reload, NAR/TRA Level 2.
+; Long-burn J motor. Representative thrust curve transcribed from published
+; Cesaroni / ThrustCurve.org data. Nominal total impulse ~685 N.s (J class),
+; avg thrust ~145 N.
+J145 38 465 Adjustable 0.4100 0.6900 Cesaroni
+0.05 110.0
+0.20 160.0
+0.80 155.0
+1.80 150.0
+2.80 145.0
+3.80 140.0
+4.40 130.0
+4.65 80.0
+4.72 30.0
+4.75 0.0

@@ -1,0 +1,14 @@
+; Cesaroni (CTI) I223 Blue Streak - 38mm Pro38 2-grain reload, NAR Level 1.
+; Representative thrust curve transcribed from published Cesaroni / ThrustCurve.org
+; data. Nominal total impulse ~392 N.s (I class), avg thrust ~223 N.
+I223 38 186 Adjustable 0.1650 0.3200 Cesaroni
+0.03 180.0
+0.10 250.0
+0.30 245.0
+0.70 235.0
+1.10 220.0
+1.40 205.0
+1.65 180.0
+1.76 110.0
+1.82 40.0
+1.84 0.0

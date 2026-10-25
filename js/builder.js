@@ -12,6 +12,7 @@ import { COMPONENT_TYPES, MATERIALS, layoutPositions, totalLength,
          frontDiameter, rearDiameter, maxBodyDiameter } from "./rocket.js";
 import { stabilityMargin } from "./aero.js";
 import { getMotor } from "./motors.js";
+import { buildReport } from "./analysis.js";
 
 // --- Which editable fields each component type exposes. ---
 const FIELDS = {
@@ -19,7 +20,7 @@ const FIELDS = {
     { key: "length",        label: "Length (m)",        step: 0.01 },
     { key: "diameter",      label: "Diameter (m)",      step: 0.005 },
     { key: "wallThickness", label: "Wall thickness (m)",step: 0.0005 },
-    { key: "shape",         label: "Shape",             type: "select", options: ["ogive", "cone", "blunt"] },
+    { key: "shape",         label: "Shape",             type: "select", options: ["ogive", "conical", "vonKarman", "haack", "parabolic", "elliptical", "cone", "blunt"] },
     { key: "material",      label: "Material",          type: "select", options: Object.keys(MATERIALS) },
   ],
   [COMPONENT_TYPES.BODY]: [
@@ -59,6 +60,7 @@ export class Builder {
     this.listEl = refs.listEl;
     this.editorEl = refs.editorEl;
     this.stabilityEl = refs.stabilityEl;
+    this.analysisEl = refs.analysisEl || null; // richer analysis panel (optional)
     this.cb = callbacks; // { onChange, onSelect }
     this.selectedId = null;
   }
@@ -69,6 +71,7 @@ export class Builder {
     this.renderList(rocket);
     this.renderEditor(rocket);
     this.renderStability(rocket);
+    this.renderAnalysis(rocket);
   }
 
   // ---- Canvas drawing --------------------------------------------------
@@ -279,5 +282,74 @@ export class Builder {
       <div class="row"><span>CP from nose</span><span>${(cp * 100).toFixed(1)} cm</span></div>
       <div class="row"><span>Reference ⌀</span><span>${(dRef * 100).toFixed(1)} cm</span></div>
     `;
+  }
+
+  // ---- Rich, educational analysis panel --------------------------------
+  // Lists every depth metric with its value + unit, a plain-language note on
+  // why it matters, and a citation. Also shows the per-part mass breakdown
+  // and any warnings (low stability, fin flutter risk).
+  renderAnalysis(rocket) {
+    if (!this.analysisEl) return;
+    const motor = getMotor(rocket.motorId);
+
+    let report;
+    try {
+      report = buildReport(rocket, motor);
+    } catch (err) {
+      this.analysisEl.innerHTML =
+        `<p class="muted">Analysis unavailable: ${err.message}</p>`;
+      return;
+    }
+
+    const esc = (str) => String(str)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const fmtValue = (v) => {
+      if (typeof v === "string") return esc(v);
+      if (!Number.isFinite(v)) return "n/a";
+      const abs = Math.abs(v);
+      if (abs !== 0 && (abs < 0.01 || abs >= 100000)) return v.toExponential(2);
+      if (abs >= 100) return v.toFixed(0);
+      if (abs >= 10) return v.toFixed(1);
+      return v.toFixed(2);
+    };
+
+    let html = "";
+
+    // Warnings first so they are impossible to miss.
+    for (const w of report.warnings) {
+      html += `<div class="analysis-warning">⚠ ${esc(w)}</div>`;
+    }
+
+    // Honesty note when the selected motor uses an approximate .eng curve.
+    if (report.motorNote) {
+      html += `<div class="analysis-note">ℹ ${esc(report.motorNote)}</div>`;
+    }
+
+    // Each metric: value + unit on the header row, explanation + citation below.
+    for (const m of report.metrics) {
+      html += `
+        <div class="metric">
+          <div class="metric-head">
+            <span class="metric-label">${esc(m.label)}</span>
+            <span class="metric-value">${fmtValue(m.value)}${m.unit ? " " + esc(m.unit) : ""}</span>
+          </div>
+          <div class="metric-why">${esc(m.explanation)}</div>
+          <div class="metric-cite">${esc(m.citation)}</div>
+        </div>`;
+    }
+
+    // Per-part mass breakdown.
+    html += `<div class="metric"><div class="metric-head">
+      <span class="metric-label">Mass breakdown</span></div>`;
+    for (const p of report.massBreakdown) {
+      html += `<div class="breakdown-row">
+        <span>${esc(p.name)}</span>
+        <span>${p.grams.toFixed(1)} g (${p.percent.toFixed(0)}%)</span>
+      </div>`;
+    }
+    html += `</div>`;
+
+    this.analysisEl.innerHTML = html;
   }
 }

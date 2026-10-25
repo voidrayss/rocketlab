@@ -1,0 +1,14 @@
+; Cesaroni (CTI) J285 Classic - 38mm Pro38 5-grain reload, NAR/TRA Level 2.
+; Representative thrust curve transcribed from published Cesaroni / ThrustCurve.org
+; data. Nominal total impulse ~820 N.s (J class), avg thrust ~285 N.
+J285 38 404 Adjustable 0.3900 0.6600 Cesaroni
+0.03 220.0
+0.12 320.0
+0.40 310.0
+1.00 300.0
+1.60 290.0
+2.20 275.0
+2.60 255.0
+2.80 160.0
+2.88 55.0
+2.90 0.0

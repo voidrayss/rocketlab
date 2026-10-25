@@ -1,0 +1,14 @@
+; AeroTech H180W (White Lightning) - 38mm reloadable, NAR Level 1.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~212 N.s (H class), avg thrust ~180 N.
+H180W 38 139 6-10-14 0.0800 0.1900 AeroTech
+0.02 120.0
+0.07 210.0
+0.15 220.0
+0.40 200.0
+0.70 185.0
+0.90 170.0
+1.05 150.0
+1.15 100.0
+1.18 40.0
+1.20 0.0

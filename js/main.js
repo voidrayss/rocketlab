@@ -9,14 +9,17 @@
 
 import { defaultRocket, createNose, createBody, createTransition, createFins,
          totalLength } from "./rocket.js";
-import { motorOptions, getMotor } from "./motors.js";
+import { motorOptions, getMotor, loadEngFiles } from "./motors.js";
 import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
 import { simulateFlight } from "./physics.js";
 import { Builder } from "./builder.js";
 import { FlightView } from "./flight.js";
+import { Viewer3D } from "./viewer3d.js";
+import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
 let rocket = defaultRocket();
+let view3dActive = false; // whether the 3D view is currently showing
 
 // ---- Builder view ------------------------------------------------------
 const builder = new Builder(
@@ -25,16 +28,27 @@ const builder = new Builder(
     listEl: document.getElementById("component-list"),
     editorEl: document.getElementById("editor"),
     stabilityEl: document.getElementById("stability"),
+    analysisEl: document.getElementById("analysis"),
   },
   {
-    onChange: () => builder.render(rocket),
+    onChange: () => refresh(),
     onDelete: (id) => {
       rocket.components = rocket.components.filter((c) => c.id !== id);
       if (builder.selectedId === id) builder.selectedId = null;
-      builder.render(rocket);
+      refresh();
     },
   }
 );
+
+// ---- 3D viewer ---------------------------------------------------------
+const viewer = new Viewer3D(document.getElementById("viewer3d"));
+
+// Re-render the builder (2D + analysis) and, if the 3D view is showing, the
+// 3D scene too. Keeping this in one place means every edit path stays in sync.
+function refresh() {
+  builder.render(rocket);
+  if (view3dActive) viewer.render(rocket);
+}
 
 // ---- Flight view -------------------------------------------------------
 const flight = new FlightView({
@@ -64,22 +78,81 @@ document.querySelectorAll("[data-add]").forEach((btn) => {
       else rocket.components.splice(firstFin, 0, comp);
     }
     builder.selectedId = comp.id;
-    builder.render(rocket);
+    refresh();
   });
 });
 
 // ---- Motor dropdown ----------------------------------------------------
+// The dropdown is populated in two passes: first with the legacy presets so
+// the app is usable immediately and offline, then rebuilt once the .eng
+// catalog has been fetched and parsed. Options are grouped by impulse class
+// (and certification level) under <optgroup> headings so the big L1/L2 list
+// stays navigable. The default motor (C6) stays selected across rebuilds.
 const motorSelect = document.getElementById("motor-select");
-for (const { id, label } of motorOptions()) {
-  const o = document.createElement("option");
-  o.value = id; o.textContent = label;
-  if (id === rocket.motorId) o.selected = true;
-  motorSelect.appendChild(o);
+
+function populateMotorSelect() {
+  const current = rocket.motorId;
+  motorSelect.textContent = "";
+
+  // Group options by class letter, preserving the impulse-sorted order.
+  const groups = new Map(); // letter -> { cert, options: [] }
+  for (const opt of motorOptions()) {
+    if (!groups.has(opt.class)) groups.set(opt.class, { cert: opt.cert, options: [] });
+    groups.get(opt.class).options.push(opt);
+  }
+
+  for (const [letter, group] of groups) {
+    const og = document.createElement("optgroup");
+    const certTag = group.cert && group.cert !== "Model" ? ` - ${group.cert}` : "";
+    og.label = `Class ${letter}${certTag}`;
+    for (const opt of group.options) {
+      const o = document.createElement("option");
+      o.value = opt.id;
+      o.textContent = opt.label;
+      if (opt.id === current) o.selected = true;
+      og.appendChild(o);
+    }
+    motorSelect.appendChild(og);
+  }
+  motorSelect.value = current;
 }
+
+populateMotorSelect();
+
 motorSelect.addEventListener("change", () => {
   rocket.motorId = motorSelect.value;
-  builder.render(rocket);
+  refresh();
 });
+
+// Fetch the real .eng catalog in the background, then rebuild the dropdown
+// with the full H/I/J/K list grouped by class. Failures are non-fatal: the
+// legacy presets remain available.
+loadEngFiles()
+  .then((loaded) => {
+    if (loaded.length > 0) populateMotorSelect();
+  })
+  .catch((err) => console.warn("motor catalog load failed:", err));
+
+// ---- 2D / 3D view toggle ----------------------------------------------
+// Switch the Builder center panel between the 2D canvas and the 3D viewer.
+// The 3D animation loop runs only while 3D is shown, and is stopped when we
+// switch back, so we never leave an idle RAF loop running.
+function setCenterView(mode) {
+  view3dActive = mode === "3d";
+  document.getElementById("view2d-btn").classList.toggle("active", !view3dActive);
+  document.getElementById("view3d-btn").classList.toggle("active", view3dActive);
+  document.getElementById("cad-2d").classList.toggle("active", !view3dActive);
+  document.getElementById("cad-3d").classList.toggle("active", view3dActive);
+
+  if (view3dActive) {
+    viewer.render(rocket);
+    viewer.start();
+  } else {
+    viewer.stop();
+  }
+}
+document.getElementById("view2d-btn").addEventListener("click", () => setCenterView("2d"));
+document.getElementById("view3d-btn").addEventListener("click", () => setCenterView("3d"));
 
 // ---- Tabs --------------------------------------------------------------
 function switchTab(name) {
@@ -87,6 +160,16 @@ function switchTab(name) {
     t.classList.toggle("active", t.dataset.tab === name));
   document.getElementById("view-build").classList.toggle("active", name === "build");
   document.getElementById("view-fly").classList.toggle("active", name === "fly");
+
+  // Pause the 3D loop when the Builder tab is not visible; resume it when we
+  // come back and 3D is the selected center view. This avoids a hidden RAF
+  // loop rendering offscreen during flight.
+  if (name === "build" && view3dActive) {
+    viewer.render(rocket);
+    viewer.start();
+  } else {
+    viewer.stop();
+  }
 }
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => switchTab(t.dataset.tab)));
@@ -115,8 +198,44 @@ function runSimulation() {
 }
 
 document.getElementById("launch-btn").addEventListener("click", runSimulation);
+
+// ---- Onshape export preview (scaffolding, no network) ------------------
+// The live Onshape REST API is deferred until the account can create API keys.
+// For now this button only PREVIEWS the parametric part definitions the export
+// pipeline would POST (the pure builders in js/onshape/*). It makes no network
+// call and is wrapped in try/catch so a bad edit can never break the Builder.
+const onshapeBtn = document.getElementById("onshape-preview-btn");
+const onshapePreview = document.getElementById("onshape-preview");
+if (onshapeBtn && onshapePreview) {
+  onshapeBtn.addEventListener("click", () => {
+    if (!onshapePreview.hidden) {
+      onshapePreview.hidden = true;
+      return;
+    }
+    try {
+      const payloads = rocketFeatureScripts(rocket);
+      const parts = payloads
+        .map((p) => {
+          const params = JSON.stringify(p.parameters, null, 2);
+          return `=== ${p.featureName} (${p.units}) ===\n\n` +
+                 `-- FeatureScript --\n${p.source}\n` +
+                 `-- Parameters --\n${params}`;
+        })
+        .join("\n\n");
+      onshapePreview.textContent =
+        "Live Onshape export is coming soon. These are the parametric part " +
+        "definitions the pipeline would send (no network call is made yet).\n\n" +
+        parts;
+    } catch (err) {
+      onshapePreview.textContent = `Preview unavailable: ${err.message}`;
+    }
+    onshapePreview.hidden = false;
+  });
+}
 document.getElementById("play-btn").addEventListener("click", () => flight.play());
 document.getElementById("reset-btn").addEventListener("click", () => flight.reset());
 
 // ---- Initial render ----------------------------------------------------
-builder.render(rocket);
+// Start in the 2D view (offline-friendly); the user opts into 3D via the
+// toggle, which lazily boots the WebGL renderer and the animation loop.
+refresh();

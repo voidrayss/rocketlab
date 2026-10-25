@@ -1,0 +1,15 @@
+; AeroTech H128W (White Lightning) - 29mm reloadable, NAR Level 1.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~163 N.s (H class), avg thrust ~128 N.
+; Format: name diam(mm) length(mm) delays propMass(kg) totalMass(kg) mfg
+H128W 29 124 6-10-14 0.0620 0.1510 AeroTech
+0.03 90.0
+0.08 150.0
+0.15 160.0
+0.30 150.0
+0.60 140.0
+0.90 132.0
+1.10 120.0
+1.20 90.0
+1.27 40.0
+1.30 0.0

@@ -1,0 +1,14 @@
+; AeroTech I200W (White Lightning) - 38mm reloadable, NAR Level 1.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~480 N.s (I class), avg thrust ~200 N.
+I200W 38 241 6-10-14 0.1900 0.3700 AeroTech
+0.03 150.0
+0.10 240.0
+0.25 250.0
+0.60 230.0
+1.20 210.0
+1.80 195.0
+2.20 180.0
+2.40 130.0
+2.48 50.0
+2.50 0.0

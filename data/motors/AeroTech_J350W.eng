@@ -1,0 +1,14 @@
+; AeroTech J350W (White Lightning) - 38mm reloadable, NAR/TRA Level 2.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~710 N.s (J class), avg thrust ~350 N.
+J350W 38 329 6-10-14 0.3300 0.5700 AeroTech
+0.02 260.0
+0.09 410.0
+0.25 400.0
+0.60 380.0
+1.00 360.0
+1.40 335.0
+1.75 300.0
+1.95 170.0
+2.02 55.0
+2.05 0.0

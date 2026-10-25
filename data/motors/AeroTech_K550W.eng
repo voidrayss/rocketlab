@@ -1,0 +1,14 @@
+; AeroTech K550W (White Lightning) - 54mm reloadable, NAR/TRA Level 2.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~1470 N.s (K class), avg thrust ~550 N.
+K550W 54 410 6-10-14 0.7700 1.3000 AeroTech
+0.02 440.0
+0.10 640.0
+0.30 620.0
+0.80 600.0
+1.40 575.0
+1.90 540.0
+2.30 490.0
+2.55 300.0
+2.65 95.0
+2.70 0.0

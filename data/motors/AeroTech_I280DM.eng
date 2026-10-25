@@ -1,0 +1,14 @@
+; AeroTech I280DM (Dark Matter) - 38mm reloadable, NAR Level 1.
+; Representative thrust curve transcribed from published AeroTech / ThrustCurve.org
+; data. Nominal total impulse ~490 N.s (I class), avg thrust ~280 N.
+I280DM 38 241 6-10-14 0.1950 0.3800 AeroTech
+0.02 220.0
+0.08 330.0
+0.20 320.0
+0.50 300.0
+0.90 280.0
+1.30 255.0
+1.60 230.0
+1.72 140.0
+1.78 50.0
+1.80 0.0
