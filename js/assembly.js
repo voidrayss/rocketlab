@@ -68,8 +68,18 @@ export function resolveAssembly(rocket) {
   let bodyEnd=0;
   for(const c of all)if(assembled(c)&&!internal(c)&&c.type!=='fins')bodyEnd=Math.max(bodyEnd,(pos.get(c.id)??0)+c.length);
   for(const c of all)if(assembled(c)&&c.type==='fins')pos.set(c.id,bodyEnd-c.rootChord+(c.finOffset??0));
+  for(const c of all.filter(c=>assembled(c)&&c.attachment)){
+    const p=map.get(c.attachment.parentId),a=c.attachment,cx=pos.get(c.id),px=pos.get(p.id);
+    const overlap=(start,end)=>Math.min(end,px+p.length)-Math.max(start,px);
+    if(c.type==='finCan'&&a.fit!=='butt'&&overlap(cx,cx+c.length)<=1e-6)throw new Error('Sleeve attachment needs axial overlap with its body. Reduce the offset or use a butt joint.');
+    if(c.type==='nose'&&c.shoulderEnabled&&overlap(cx+c.length,cx+c.length+c.shoulderLength)<=1e-6)throw new Error('The shoulder does not engage its body at this axial offset.');
+    const bore=p.diameter-2*p.wallThickness;
+    if((c.type==='finCan'&&a.fit==='over'&&c.innerDiameter<p.diameter)||(c.type==='finCan'&&a.fit==='inside'&&c.diameter>bore)||(c.type==='nose'&&c.shoulderEnabled&&c.shoulderDiameter>bore)||(c.type==='ring'&&c.diameter>bore))warnings.push((c.name||c.type)+': interference with body material. Fix the locked/manual fit before manufacturing; no automatic material subtraction is performed.');
+    if(c.type==='nose'&&c.shoulderEnabled&&c.shoulderLength>p.length)warnings.push('The nose shoulder is longer than its body. Confirm assembly fit.');
+  }
   let overallEnd=bodyEnd;
   for(const c of all)if(assembled(c)){
+    if(c.type==='nose'&&c.shoulderEnabled)overallEnd=Math.max(overallEnd,pos.get(c.id)+c.length+c.shoulderLength);
     if(c.type==='fins')overallEnd=Math.max(overallEnd,pos.get(c.id)+Math.max(c.rootChord,c.sweep+c.tipChord));
     if(c.type==='finCan')overallEnd=Math.max(overallEnd,pos.get(c.id)+finStart(c)+Math.max(c.rootChord,c.sweep+c.tipChord));
   }

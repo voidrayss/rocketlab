@@ -1,3 +1,4 @@
+import { validateNose } from "./nose.js";
 import { resolveAssembly, defaultAttachment } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported } from "./imported.js";
@@ -59,9 +60,13 @@ export function canonicalNoseShape(shape) {
 // --- Factory helpers: each returns a plain object with sensible defaults. ---
 
 export function createNose({ length = 0.15, diameter = 0.05, shape = "ogive",
-                             material = "plastic", wallThickness = 0.002 } = {}) {
-  return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.NOSE, name:"Nose cone",
-           length, diameter, shape, material, wallThickness };
+                             material = "plastic", wallThickness = 0.002,
+  massModel="legacy-cone",shoulderEnabled=false,shoulderLength=.04,shoulderDiameter=diameter-.0024,
+  shoulderWallThickness=.002,shoulderHollow=true,shoulderJoinThickness=.002 } = {}) {
+  const c={ id: makeId(), uid: newUID(), type: COMPONENT_TYPES.NOSE, name:"Nose cone",
+    length,diameter,shape,material,wallThickness,massModel:shoulderEnabled?"profile-shell":massModel,
+    shoulderEnabled,shoulderLength,shoulderDiameter,shoulderWallThickness,shoulderHollow,shoulderJoinThickness };
+  validateNose(c);return c;
 }
 
 export function createBody({ length = 0.30, diameter = 0.05,

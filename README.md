@@ -445,3 +445,9 @@ Duplicate/import reusable parts into the project library, then choose whether
 they are assembled. Native v3 stores stable identities and relationships; older
 projects remain loadable. Visibility and exploded display do not change physics.
 CG/CP 3D rings and labels are toggleable. See [workspace workflows and limits](docs/WORKSPACES.md).
+
+
+New manufacturing noses include an optional body-fitted hollow/solid shoulder,
+join web, geometry-consistent mass/CG, and STEP/STL/metadata export. Legacy noses
+remain unchanged until switched to the manufacturing model. Curved profiles use
+48 axial samples; see [CAD assumptions and verification](docs/CAD.md).

@@ -3,6 +3,7 @@ import {applyAssembly,defaultAttachment,assembled} from './assembly.js';
 import {serializeProject,serializePart,parsePart} from './project.js';
 export function editComponent(rocket,id,patch){
   const source=rocket.components.find(c=>c.id===id);
+  if(source?.shoulderEnabled&&patch.massModel==="legacy-cone")throw new Error("Disable the shoulder before selecting legacy nose mass.");
   if(source?.attachment && source.attachment.matching!=="manual" && ["diameter","innerDiameter","shoulderDiameter"].some(k=>Object.hasOwn(patch,k)))throw new Error('Diameter is derived or locked; select Manual override first.');
   const draft={...rocket,components:rocket.components.map(c=>({...c,...(c.attachment?{attachment:{...c.attachment}}:{}),...(c.id===id?patch:{})}))};
   applyAssembly(draft);serializeProject(draft);
@@ -15,6 +16,11 @@ export function addComponent(rocket,type,selectedId){
   const bodies=rocket.components.filter(c=>assembled(c)&&c.type==='body');
   const body=bodies.find(c=>c.id===selectedId) || (type==='nose'?bodies[0]:bodies.at(-1));
   const c=factories[type]();
+  if(type==="nose"){c.shoulderEnabled=true;c.massModel="profile-shell";}
+  if(body&&type==='nose'){
+    c.wallThickness=Math.min(c.wallThickness,body.diameter/8);
+    c.shoulderWallThickness=Math.min(c.shoulderWallThickness,(body.diameter-2*body.wallThickness-.0004)/4);
+  }
   if(body && ['nose','finCan'].includes(type))c.attachment=defaultAttachment(body.id,type,type==='finCan'?'over':'butt');
   let components=rocket.components.filter(old=>!(type==='finCan'&&assembled(old)&&old.type==='fins'));
   const index=type==='nose'&&body?components.findIndex(old=>old.id===body.id):components.findIndex(old=>old.type==='fins'&&assembled(old));

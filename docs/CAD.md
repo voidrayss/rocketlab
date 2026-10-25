@@ -199,3 +199,35 @@ STEP/STL/metadata export, and v2 metadata restoration through the existing CAD
 pipeline. CAD volume, centroid, topology, and STEP round trip have been tested,
 as have the browser controls and project round trip. No Onshape FeatureScript
 implementation is added for rings.
+
+## Manufacturing noses and shoulders
+
+Newly created noses use the **Manufacturing radial-wall shell** model and a
+shoulder enabled by default. Existing noses retain the legacy thin-cone estimate
+until explicitly switched. Enable/disable the shoulder; set its length, outer
+diameter, wall, hollow/solid setting and axial join-web thickness. With automatic
+body matching, shoulder OD = body ID − twice radial clearance. The nose sits at
+the body's forward end; its shoulder extends into the bore, without adding a
+spacer or counting body material again. Unsupported offsets with no engagement
+are rejected. Manual/locked interference is reported, not silently subtracted.
+
+Manufacturing nose shell, join web and shoulder form one closed revolution
+profile. CAD, 3D preview and engineering mass/CG use the same radial-wall profile.
+Volume and first moment are integrated exactly for its piecewise conical bands;
+shoulder surfaces are true cylinders. Curved nose families use **48 axial profile
+samples**, not exact analytic ogive/Haack/ellipse surfaces. STL chord tolerance
+controls tessellation of that solid; it does not refine those axial profile bands.
+The join is an annular web/step, not a root fillet. Shoulder wall is ignored for a
+solid shoulder; its stored value is used again if hollow is enabled.
+
+Choose the manufacturing model before generating a legacy nose's solid. STEP,
+STL and fingerprinted metadata exports/restoration support manufacturing noses.
+The old numerical baseline and old projects are preserved; opting into the new
+geometry naturally changes nose mass/CG and flight predictions. The original
+OpenRocket comparison still concerns the legacy model, not these new profiles.
+
+Verified across conical, ogive, von Karman, Haack, parabolic and elliptical noses:
+valid single-solid topology, exact analytic volume/centroid agreement, STEP
+round trip and separately packaged STEP-reader opening. Hollow and solid shoulders
+and shoulder-free shells were also checked. Chrome checks cover a resized-body
+fit, live Part Studio shoulder length edit, and joined nose STEP/STL downloads.

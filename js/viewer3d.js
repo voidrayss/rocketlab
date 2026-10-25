@@ -1,3 +1,4 @@
+import { noseGeometry } from "./nose.js";
 import { resolveAssembly } from "./assembly.js";
 import { localPart } from "./components.js";
 import { importedPoint } from "./imported.js";
@@ -202,7 +203,7 @@ export class Viewer3D {
     // Revolve the nose profile. noseConeProfile returns {x, r} from tip to
     // base; LatheGeometry revolves a set of 2D points (x = radius, y = height)
     // around the Y axis.
-    const profile = noseConeProfile(c, 32);
+    const profile = (c.shoulderEnabled||c.massModel==="profile-shell")?noseGeometry(c,noseConeProfile(c,48)).profile:noseConeProfile(c,32);
     const points = profile.map((p) => new THREE.Vector2(Math.max(p.r, 1e-5), -p.x));
     const geo = new THREE.LatheGeometry(points, 48);
     const mat = this._material(COLORS.nose);

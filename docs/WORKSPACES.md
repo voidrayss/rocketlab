@@ -65,6 +65,7 @@ part files. Chrome tests cover the workspace/editor, projection, library/part
 files, 3D selection/markers, recreation, and v3 project reload; offline Part Studio
 retains a functional parameter editor with an explicit 3D-unavailable message.
 
-Shoulders, fin overhangs, root fillets, expanded planforms/cross-sections, fin
-search, motor catalog expansion and recovery settings are separate milestones.
+Nose shoulders and profile-based nose solids are now operational; see CAD.md.
+Fin overhangs, root fillets, expanded planforms/cross-sections, fin search, motor
+catalog expansion and recovery settings are the remaining milestones.
 No unimplemented geometry option is represented as a working solid feature.

@@ -171,6 +171,19 @@ try {
  await click('#component-list [data-type="nose"]');assert.equal(await evaluate('document.querySelector("[data-field=diameter]").value'),'0.08');
  await click('#component-list [data-type="nose"] .del');await click('[data-add="nose"]');
  assert.equal(await evaluate('document.querySelector("[data-field=diameter]").value'),'0.08');
+ assert.equal(await evaluate('document.querySelector("[data-field=shoulderEnabled]").checked'),true);
+ assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=shoulderDiameter]").value'))-.0776)<1e-12);
+ await click('#open-part');
+ await evaluate('const shoulder=document.querySelector("[data-field=shoulderLength]");shoulder.value="0.06";shoulder.dispatchEvent(new Event("change"));');
+ await evaluate('document.querySelector("#cad-panel").open=true;');await click('#cad-generate');
+ await until(()=>evaluate('!document.querySelector("#cad-generate").disabled'),100000);
+ assert(await evaluate('!document.querySelector("#cad-step").disabled'),await evaluate('document.querySelector("#cad-status").textContent'));
+ const noseProperties=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(noseProperties.valid&&noseProperties.solids===1&&Math.abs(noseProperties.boundsMm[1][2]-210)<1e-7);
+ await click('#cad-step');await click('#cad-stl');await click('#cad-metadata');
+ await click('#part-done');
+ console.log('PASS: body-fitted nose shoulder, shared Part Studio edit and valid joined nose STEP/STL export');
+
  await click('[data-add="finCan"]');assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
  await click('#component-list [data-type="finCan"] .del');await click('[data-add="finCan"]');
  assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
@@ -180,11 +193,12 @@ try {
  assert((await evaluate('document.querySelector("#marker-readout").textContent')).includes((marker.cg*1000).toFixed(2)+' mm'));
  await click('#show-markers');assert.equal(await evaluate('document.querySelector("#viewer3d canvas").dataset.markersVisible'),'false');await click('#show-markers');
  await click('#explode-view');assert.equal(await evaluate('document.querySelector("#viewer3d canvas").dataset.markersVisible'),'false');await click('#explode-view');
+ await evaluate('document.querySelector("#viewer3d canvas").scrollIntoView({block:"center"})');await pause(150);
  const hitRect=JSON.parse(await evaluate('JSON.stringify(document.querySelector("#viewer3d canvas").getBoundingClientRect())'));
  const hitX=hitRect.x+hitRect.width/2,hitY=hitRect.y+hitRect.height/2;
  await call('Input.dispatchMouseEvent',{type:'mousePressed',x:hitX,y:hitY,button:'left',clickCount:1});
  await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:hitX,y:hitY,button:'left',clickCount:1});
- assert(await evaluate('!!document.querySelector("#component-list [data-type=body].selected")'));
+ assert(await evaluate('!!document.querySelector("#component-list [data-type=body].selected")'),await evaluate('document.querySelector("#component-list .selected")?.textContent'));
 
  await evaluate('const name=document.querySelector("#project-name");name.value="Studio project";name.dispatchEvent(new Event("change"));');await click('#save-project-btn');
  const studioProjectPath=await until(async()=>(await readdir(dir)).find(f=>f==='Studio_project.json'));

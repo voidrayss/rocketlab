@@ -1,3 +1,4 @@
+import { noseGeometry } from "./nose.js";
 import { resolveAssembly } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { finCanProperties } from "./fincan.js";
@@ -12,7 +13,7 @@ import { finCanProperties } from "./fincan.js";
 // ===========================================================================
 
 import { COMPONENT_TYPES, MATERIALS, layoutPositions, bodyLength, totalLength,
-         maxBodyDiameter, canonicalNoseShape } from "./rocket.js";
+         maxBodyDiameter, canonicalNoseShape, noseConeProfile } from "./rocket.js";
 import { massProperties, centerOfPressure, stabilityMargin, dragCoefficient,
          referenceArea, finenessRatio, wettedArea, skinFrictionDrag,
          finGeometry, flutterVelocity } from "./aero.js";
@@ -35,6 +36,7 @@ const NOSE_SHAPE_INFO = {
 function componentMass(c) {
   switch (c.type) {
     case COMPONENT_TYPES.NOSE: {
+      if(c.shoulderEnabled||c.massModel==="profile-shell")return noseGeometry(c,noseConeProfile(c,48)).volume*MATERIALS[c.material];
       // Intentional simplification: mass every nose as a hollow cone shell
       // regardless of shape family. This mirrors aero.js massProperties()
       // exactly so the per-part breakdown sums to 100%. wettedArea() is
@@ -145,6 +147,7 @@ export function buildReport(rocket, motor) {
   else stabWord = "OVER-STABLE: it will weathercock strongly into the wind. Trim fin size or move mass rearward.";
 
   const warnings = [...(rocket.assemblyWarnings||[])];
+  if(nose?.massModel==="profile-shell")warnings.push("Manufacturing nose uses a radial-wall profile with 48 axial samples; curved families are piecewise conical approximations. Shoulder join is a web, not a fillet.");
   if (rocket.components.some(c => c.type === "imported")) warnings.push("Imported CAD mass uses saved kernel volume and selected density. Internal parts add mass only; external parts use a user-specified cylindrical aerodynamic proxy with no fin or nose CP. Confirm fit, placement, and aerodynamic assumptions. Project reload does not rerun the CAD kernel.");
   if (!s.launched) warnings.push("The rocket never lifted off the launch pad.");
   else if (!s.railCleared) warnings.push("The rocket did not clear the launch rail.");

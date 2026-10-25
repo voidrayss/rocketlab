@@ -381,8 +381,8 @@ async function performCAD(job, snapshot = null) {
 }
 document.getElementById("cad-generate").addEventListener("click", () => {
   const component = selectedCADComponent();
-  if (!component || !["body", "finCan", "ring"].includes(component.type)) {
-    document.getElementById("cad-status").textContent = "Select a body tube, fin can, or centering ring in the component list first."; return;
+  if (!component || !["body", "finCan", "ring", "nose"].includes(component.type)) {
+    document.getElementById("cad-status").textContent = "Select a manufacturing nose, body tube, fin can, or centering ring in the component list first."; return;
   }
   performCAD({component: {...component}, toleranceMm: Number(document.getElementById("cad-tolerance").value)}, JSON.stringify(component));
 });
@@ -410,18 +410,21 @@ document.getElementById("cad-panel").addEventListener("toggle", event => {
   else cadViewer?.stop();
 });
 
-function installCADComponent(component) {
+function prospectiveCADComponents(component) {
   const selected = selectedCADComponent();
   const replace = document.getElementById("cad-assembly-mode").value === "replace";
   if (replace && !selected) throw new Error("Select the physical component to replace, or choose Add a separate physical part.");
-  const components = replace ? rocket.components.map(c=>{
+  return replace ? rocket.components.map(c=>{
     if(c.id===selected.id)return component;
     if(c.attachment?.parentId===selected.id)return component.type==="body"?{...c,attachment:{...c.attachment,parentId:component.id}}:{...c,attachment:undefined,inAssembly:false};
     return c;
   }) : [...rocket.components,component];
+}
+function installCADComponent(component) {
+  const components=prospectiveCADComponents(component);
   // Validate the prospective assembly before changing shared state.
-  serializeProject({...rocket,components});
-  rocket.components=components; builder.selectedId=component.id;
+  const draft={...rocket,components:components.map(c=>({...c}))};applyAssembly(draft);serializeProject(draft);
+  rocket.components=draft.components.map(next=>{const old=rocket.components.find(c=>c.id===next.id);return old?Object.assign(old,next):next;}); builder.selectedId=component.id;
   flight.reset(); flight.result=null;
   flight.telemetryEl.textContent="Launch the modified assembly to generate telemetry.";
   flight.summaryEl.textContent="";
@@ -472,14 +475,16 @@ document.getElementById("cad-restore").addEventListener("click",async()=>{
     if(!cadResult?.sourceStep || !metadataComparison(cadMetadata,cadResult).canRestore)throw new Error("Unchanged STEP source and compatible metadata are required.");
     const original=parseProject(JSON.stringify({format:"rocketlab",version:1,rocket:{name:"Restored CAD",motorId:rocket.motorId,components:[{...cadMetadata.component,attachment:undefined}]}})).components[0];
     const selectedId=builder.selectedId;
-    const regenerated=await runCAD({component:original});
-    if(builder.selectedId!==selectedId) throw new Error("Selection changed during regeneration. Try restoring again.");
-    const checked=metadataComparison({format:"rocketlab-cad",version:1,properties:regenerated.properties},cadResult);
-    if(!checked.propertiesMatch)throw new Error("Regenerated parameters differ from the imported geometry. Use custom CAD instead.");
     const selected=selectedCADComponent();
     const parent=rocket.components.find(c=>c.uid===cadMetadata.assemblyHint?.parentUid&&c.type==="body"&&c.inAssembly!==false);
     if(selected?.attachment)original.attachment={...selected.attachment};
     else if(parent)original.attachment={...cadMetadata.assemblyHint.attachment,parentId:parent.id};
+    const candidate=resolveAssembly({...rocket,components:prospectiveCADComponents(original)}).libraryComponents.find(c=>c.id===original.id);
+    Object.assign(original,candidate);
+    const regenerated=await runCAD({component:original});
+    if(builder.selectedId!==selectedId) throw new Error("Selection changed during regeneration. Try restoring again.");
+    const checked=metadataComparison({format:"rocketlab-cad",version:1,properties:regenerated.properties},cadResult);
+    if(!checked.propertiesMatch)throw new Error("Regenerated parameters or current body fit differ from imported geometry. Use custom CAD instead.");
     original.sourceStepSha256=cadResult.sha256;
     installCADComponent(original);
     document.getElementById("cad-status").textContent="Original parametric part restored. STEP fingerprint and regenerated solid properties both matched; no extra physical part was added when using Replace.";

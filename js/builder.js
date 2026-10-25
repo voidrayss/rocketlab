@@ -25,6 +25,13 @@ const FIELDS = {
     { key: "diameter",      label: "Diameter (m)",      step: 0.005 },
     { key: "wallThickness", label: "Wall thickness (m)",step: 0.0005 },
     { key: "shape",         label: "Shape",             type: "select", options: ["ogive", "conical", "vonKarman", "haack", "parabolic", "elliptical", "cone", "blunt"] },
+    {key:"massModel",label:"Mass / manufacturing model",type:"select",options:["legacy-cone","profile-shell"]},
+    {key:"shoulderEnabled",label:"Enable shoulder",type:"checkbox"},
+    {key:"shoulderLength",label:"Shoulder length (m)",step:.005},
+    {key:"shoulderDiameter",label:"Shoulder outer diameter (m)",step:.001},
+    {key:"shoulderWallThickness",label:"Shoulder wall (m)",step:.0005},
+    {key:"shoulderHollow",label:"Hollow shoulder",type:"checkbox"},
+    {key:"shoulderJoinThickness",label:"Join web axial thickness (m)",step:.0005},
     { key: "material",      label: "Material",          type: "select", options: Object.keys(MATERIALS) },
   ],
   [COMPONENT_TYPES.BODY]: [
@@ -161,6 +168,7 @@ export class Builder {
         for (const point of profile) ctx.lineTo(cx - point.r * scale, y + point.x * scale);
         for (const point of [...profile].reverse()) ctx.lineTo(cx + point.r * scale, y + point.x * scale);
         ctx.closePath(); ctx.fill(); ctx.stroke();
+        if(c.shoulderEnabled){ctx.setLineDash([3,3]);ctx.strokeRect(cx-c.shoulderDiameter*scale/2,y+c.length*scale,c.shoulderDiameter*scale,c.shoulderLength*scale);ctx.setLineDash([]);}
       }
 
       else if (c.type === COMPONENT_TYPES.BODY) {
@@ -291,13 +299,16 @@ export class Builder {
         input = document.createElement("select");
         for (const opt of f.options) {
           const o = document.createElement("option");
-          o.value = opt; o.textContent = opt;
+          o.value = opt; o.textContent = ({"legacy-cone":"Legacy thin-cone estimate","profile-shell":"Manufacturing radial-wall shell"})[opt]||opt;
           if (c[f.key] === opt) o.selected = true;
           input.appendChild(o);
         }
         input.addEventListener("change", () => {
           this.commit(c,{[f.key]:input.value,...(c.type==="imported"&&f.key==="material"?{density:MATERIALS[input.value]}:{})});
         });
+      } else if (f.type === "checkbox") {
+        input=document.createElement("input");input.type="checkbox";input.checked=!!c[f.key];
+        input.addEventListener("change",()=>this.commit(c,{[f.key]:input.checked,...(f.key==="shoulderEnabled"&&input.checked?{massModel:"profile-shell"}:{})}));
       } else if (f.type === "text") {
         input = document.createElement("input"); input.type="text";input.maxLength=200;input.value=c[f.key];
         input.addEventListener("change",()=>{
@@ -325,6 +336,7 @@ export class Builder {
           }
         });
       }
+      if(f.key==="massModel"&&c.shoulderEnabled){input.disabled=true;input.title="A manufacturing shoulder requires the profile-shell model.";}
       const controlled=c.attachment && ["diameter","innerDiameter","shoulderDiameter"].includes(f.key);
       if(controlled && c.attachment.matching!=="manual") {input.disabled=true;input.title=c.attachment.matching==="auto"?"Derived from the attached body; switch matching to manual to override.":"Locked dimension.";}
       input.id = `component-${c.id}-${f.key}`;

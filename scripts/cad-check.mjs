@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { cadJob } from '../js/cad/solid.js';
-import { createFinCan, createBody, createRing } from '../js/rocket.js';
+import { createFinCan, createBody, createRing, createNose, noseConeProfile } from '../js/rocket.js';
+import {noseGeometry} from '../js/nose.js';
 import { finCanProperties } from '../js/fincan.js';
 const [loader,wasm,reader,readerWasm]=process.argv.slice(2);
 if(!loader || !wasm) {console.error('Provide the pinned OpenCascade loader (.mjs) and WASM paths. See docs/CAD.md.');process.exit(1);}
@@ -41,6 +42,16 @@ for(const count of [2,3,4,6,12]) {
  }
  console.log(`PASS: ${count}-fin single solid, analytic mass/CG, STEP round trip${independent?', independent parser/volume':''}`);
 }
+for(const shape of ['conical','ogive','vonKarman','haack','parabolic','elliptical']) {
+ const nose=createNose({shape,shoulderEnabled:true});const analytic=noseGeometry(nose,noseConeProfile(nose,48));
+ const result=cadJob(oc,{component:nose});assert(result.properties.valid&&result.properties.solids===1);
+ assert(Math.abs(result.properties.volumeMm3-analytic.volume*1e9)<.00001);
+ assert(Math.abs(result.properties.centroidMm[2]-analytic.centroidX*1000)<1e-6);
+ assert(Math.abs(result.properties.boundsMm[1][2]-(nose.length+nose.shoulderLength)*1000)<1e-8);
+ if(independent)assert(independent.ReadStepFile(result.step,null).success);
+ console.log(`PASS: ${shape} joined shoulder/nose, analytic volume/CG, STEP round trip and external reader`);
+}
+for(const options of [{shoulderEnabled:true,shoulderHollow:false},{massModel:'profile-shell'}]){const nose=createNose(options);const result=cadJob(oc,{component:nose});const p=noseGeometry(nose,noseConeProfile(nose,48));assert(Math.abs(result.properties.volumeMm3-p.volume*1e9)<.00001);}
 const body=createBody();const tube=cadJob(oc,{component:body});
 const exact=Math.PI*((body.diameter/2)**2-(body.diameter/2-body.wallThickness)**2)*body.length*1e9;
 assert(Math.abs(tube.properties.volumeMm3-exact)<.001);

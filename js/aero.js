@@ -1,3 +1,4 @@
+import { noseGeometry } from "./nose.js";
 import { resolveAssembly } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { importedPoint } from "./imported.js";
@@ -55,6 +56,9 @@ export function massProperties(rocket, extraMass = 0, extraMassX = null) {
 
     switch (c.type) {
       case COMPONENT_TYPES.NOSE: {
+        if(c.shoulderEnabled||c.massModel==="profile-shell"){
+          const g=noseGeometry(c,noseConeProfile(c,48));m=g.volume*MATERIALS[c.material];cx=x0+g.centroidX;break;
+        }
         // Intentional simplification: every nose is massed as a hollow cone
         // shell regardless of its shape family, even though wettedArea() treats
         // the real profile. This keeps the mass model simple and, critically,

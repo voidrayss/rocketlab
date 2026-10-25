@@ -1,3 +1,5 @@
+import { noseGeometry } from "../nose.js";
+import { noseConeProfile } from "../rocket.js";
 import { ringProperties } from "../rings.js";
 // Direct OpenCascade bindings; no mesh-to-solid conversion. Kernel units: mm.
 import { validateFinCan } from '../fincan.js';
@@ -64,9 +66,19 @@ export function cadJob(oc, job) {
       if (!(job.bytes instanceof Uint8Array) || job.bytes.byteLength > 20000000) throw new Error('STEP import limit is 20 MB.');
       shape=readSTEP(job.bytes);
     } else {
-      if (!component || !['body','finCan','ring'].includes(component.type)) throw new Error('Select a body tube, fin can or centering ring for CAD export.');
+      if (!component || !['body','finCan','ring','nose'].includes(component.type)) throw new Error('Select a manufacturing nose, body tube, fin can or centering ring for CAD export.');
       if (component.type==='finCan') validateFinCan(component);
       if (component.type==='ring') ringProperties(component);
+      if(component.type==='nose'){
+        if(component.massModel!=='profile-shell'&&!component.shoulderEnabled)throw new Error('Select profile-shell in the nose editor for a CAD-consistent manufacturing mass model.');
+        const geometry=noseGeometry(component,noseConeProfile(component,48));
+        const points=geometry.profile.filter((p,i,a)=>i===0||Math.hypot(p.x-a[i-1].x,p.r-a[i-1].r)>1e-12).map(p=>point(p.r*1000,0,p.x*1000));
+        const wire=keep(new oc.BRepBuilderAPI_MakeWire_1());
+        for(let i=0;i<points.length;i++)wire.Add_1(keep(keep(new oc.BRepBuilderAPI_MakeEdge_3(points[i],points[(i+1)%points.length])).Edge()));
+        const face=keep(new oc.BRepBuilderAPI_MakeFace_15(keep(wire.Wire()),true));
+        const axis=keep(new oc.gp_Ax1_2(point(0,0,0),keep(new oc.gp_Dir_4(0,0,1))));
+        shape=shapeOf(new oc.BRepPrimAPI_MakeRevol_1(keep(face.Face()),axis,Math.PI*2,true));
+      }else{
       const c=Object.fromEntries(Object.entries(component).map(([k,v])=>[k,typeof v==='number'?v*1000:v]));
       const R=c.diameter/2, r=component.type==='body'?R-c.wallThickness:c.innerDiameter/2;
       if (!(R>r && r>0 && c.length>0 && c.length<=2000)) throw new Error('Invalid sleeve dimensions.');
@@ -83,6 +95,7 @@ export function cadJob(oc, job) {
         const fin=shapeOf(new oc.BRepPrimAPI_MakePrism_1(keep(face.Face()),vec,true,true));
         shape=boolean('BRepAlgoAPI_Fuse_3',shape,fin);
       }
+    }
     }
     const properties=inspect(shape);
     if(job.action!=='import' && properties.solids!==1) throw new Error('Generated part must form exactly one solid.');

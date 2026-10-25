@@ -1,9 +1,10 @@
+import { noseGeometry } from "./nose.js";
 import { applyAssembly, validateAttachment } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported, PROJECT_LIMIT } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // Versioned project interchange; pure ES module, no browser or server required.
-import { createNose, createBody, createTransition, createFins, createFinCan, createImported, createRing, newUID, MATERIALS, NOSE_SHAPES } from './rocket.js';
+import { createNose, createBody, createTransition, createFins, createFinCan, createImported, createRing, newUID, noseConeProfile, MATERIALS, NOSE_SHAPES } from './rocket.js';
 import { MOTOR_CATALOG } from './motors.js';
 const factories = { nose: createNose, body: createBody, transition: createTransition, fins: createFins, finCan: createFinCan, imported: createImported, ring: createRing };
 const dimensions = {
@@ -43,6 +44,7 @@ export function parseProject(text) {
     if (c.type === 'nose') {
       if (![...NOSE_SHAPES, 'cone', 'blunt'].includes(c.shape)) throw new Error('Unsupported nose shape.');
       params.shape = c.shape;
+      for(const key of ['massModel','shoulderEnabled','shoulderLength','shoulderDiameter','shoulderWallThickness','shoulderHollow','shoulderJoinThickness'])if(c[key]!==undefined)params[key]=c[key];
     }
     if (c.type === 'fins' || c.type === 'finCan') {
       if (!Number.isInteger(c.count) || c.count < 1 || c.count > 32) throw new Error('Fin count must be an integer from 1 to 32.');
@@ -68,7 +70,9 @@ export function parseProject(text) {
     for(const key of ['visible','inAssembly'])if(old[key]!==undefined){if(typeof old[key]!=='boolean')throw new Error('Invalid component state.');c[key]=old[key];}
     if(old.attachment){if(!ids.has(old.attachment.parentId))throw new Error('Missing attachment target.');c.attachment={...old.attachment,parentId:ids.get(old.attachment.parentId)};}
   });
-  const result={name:r.name,motorId:r.motorId,components};applyAssembly(result);return result;
+  const result={name:r.name,motorId:r.motorId,components};applyAssembly(result);
+  for(const c of result.components)if(c.type==="nose"&&(c.shoulderEnabled||c.massModel==="profile-shell"))noseGeometry(c,noseConeProfile(c,48));
+  return result;
 }
 export function serializeProject(rocket) {
   const text = JSON.stringify({ format: 'rocketlab', version: 3, rocket }, null, 2);

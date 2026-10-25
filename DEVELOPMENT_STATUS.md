@@ -50,25 +50,32 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   optional driver and frozen comparison tests. No OpenRocket implementation
   copied or required by the website. See docs/OPENROCKET_VALIDATION.md.
 
-- Shared-workspace/attachment milestone (commit containing this entry): pure
+- `ae91bfd`: shared-workspace/attachment milestone: pure
   dependency solver and atomic edits, body-aware nose/fin-can recreation,
   automatic/manual/locked diameter sizing, over/inside/butt fit and offsets,
   isolated live Part Studio, project-part library/portable part files, v3 stable
   identities/relationship remapping, visibility/exploded display, 3D selection,
   and toggleable CG/CP markers. See docs/WORKSPACES.md.
 
+- Manufacturing-nose milestone (commit containing this entry): optional fitted
+  hollow/solid shoulder and join web, radial-wall nose profile, shared analytic
+  volume/CG and B-rep, STEP/STL/metadata support for all six nose families, and
+  body-aware creation. Legacy noses preserve prior mass behavior. Curved profiles
+  use 48 axial bands rather than analytic spline surfaces.
+
 ## Current development phase
 
 Implement the two new user directives for Builder/CAD/manufacturing and Part
 Studio/Assembly. Shared state, constraints, recreation, workspaces and markers
-are operational. Next: nose shoulder and valid aft-overhang fin geometry, then
+and shoulders are operational. Next: valid aft-overhang fin geometry, then
 fin parameterization/profiles/search, authoritative motors and recovery settings.
 Keep the existing CAD and numerical corrections intact.
 
 ## Remaining roadmap (current user priority)
 
-1. Parametric nose shoulder with body-bore matching, genuine joined solid,
-   correct mass/CG and STEP/STL verification.
+1. Shoulder refinements: optional fillets/transition, richer analytic curved
+   surfaces or controlled adaptive profile accuracy. Initial fitted shoulder,
+   solid export and matched mass/CG are complete.
 2. Fin axial offsets/overhang beyond sleeve/body, while maintaining a connected
    solid; consistent overall bounds, CP, CG, 2D/3D and exports.
 3. Fin angle controls, planform/cross-section options, root fillets, deterministic
@@ -89,7 +96,7 @@ Keep the existing CAD and numerical corrections intact.
 
 Verified 2026-10-25 (America/New_York):
 
-- `node scripts/check.mjs`: all thirteen smoke tests and source syntax PASS, including assembly constraints.
+- `node scripts/check.mjs`: all fourteen smoke tests and source syntax PASS, including assembly constraints.
   Includes numerical analytic references, all 12 shipped motor files, imported
   geometry schema/mass/CG/transforms/persistence, rings, and static OpenRocket
   CP/fin-centroid checks.
@@ -103,7 +110,9 @@ Verified 2026-10-25 (America/New_York):
   project round trip, ring solid generation/persistence, and offline fallback.
   New workspace checks include Part Studio live edits, orthographic view, library
   and part files, attachment recreation, direct 3D selection, markers and v3
-  identity/relationship reload; offline part editing also PASS.
+  identity/relationship reload; offline part editing also PASS. Shoulder unit
+  and kernel checks cover all six families, hollow/solid and no-shoulder shells,
+  volume/centroid equality, topology and independent STEP-reader opening.
   OS file dialog is intercepted through DevTools, not visually automated.
 - Inactive Pages template parses via Ruby/Psych; manual-only trigger/main guard
   confirmed. Actual deployment is untested and not enabled.
@@ -119,8 +128,9 @@ Verified 2026-10-25 (America/New_York):
 
 - Atmosphere only implements the troposphere; high-altitude extrapolation and
   its bounds are not validated. Exact flight-event interpolation remains pending.
-- All nose masses use thin conical shells, and ordinary body tubes use a thin
-  shell approximation. Haack/parabolic/elliptical CP still uses an ogive estimate.
+- Legacy noses retain thin conical-shell mass; manufacturing noses now use
+  radial-wall profiles with 48 axial samples and joined shoulder geometry.
+  Ordinary body tubes still use a thin shell approximation. Haack/parabolic/elliptical CP still uses an ogive estimate.
 - Approximate shipped motor curves; drag/fin flutter are simplified; no wind,
   attitude dynamics, or independently validated structural safety predictions.
 - Imported CAD requires an explicit internal/body aerodynamic interpretation;
@@ -171,7 +181,7 @@ Verified 2026-10-25 (America/New_York):
 ## Next actions
 
 1. Read AGENTS.md, this file, status/history; preserve HANDOFF.md.
-2. Add the nose shoulder and valid fin-can axial overhangs with matching CAD,
+2. Add valid fin-can axial overhangs with matching CAD,
    analytic volume/centroid, assembly and browser regressions.
 3. Continue the ordered roadmap above, updating this status and committing/
    pushing each tested milestone to development/rocketlab-2.
