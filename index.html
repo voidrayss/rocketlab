@@ -111,7 +111,16 @@
       <div id="summary" class="summary"></div>
     </section>
     <section class="panel plot-panel">
-      <h2>Altitude vs. Time</h2>
+      <h2>Flight plots</h2>
+      <label for="plot-select">Quantity versus time</label>
+      <select id="plot-select">
+        <option value="altitude">Altitude (m)</option>
+        <option value="velocity">Vertical velocity (m/s)</option>
+        <option value="acceleration">Vertical acceleration (m/s²)</option>
+        <option value="thrust">Thrust (N)</option>
+        <option value="stability">Static stability during burn (cal)</option>
+      </select>
+      <p id="plot-note" class="muted"></p>
       <canvas id="plot-canvas" width="360" height="260"></canvas>
     </section>
   </main>

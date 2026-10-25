@@ -378,3 +378,12 @@ shape names are not consistently used by the 2D drawing and CP calculation.
 The 166.2 m C6 baseline is preserved in these UI/project milestones, not an
 independent validation of simulation accuracy. Fin-can solids, CAD kernel
 integration, and STEP interoperability remain planned.
+
+### Flight plots
+
+The Flight panel now offers altitude, signed vertical velocity, net vertical
+acceleration, motor thrust, and static stability during the motor burn. The
+chart includes units, a zero line, and a method/assumption note. Stability uses
+six burn-time samples and does not represent attitude dynamics. Acceleration is
+recorded from the existing force calculation without changing the integrator.
+Run `node scripts/smoke-plots.mjs` to validate chart data and ranges.

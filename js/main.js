@@ -209,7 +209,7 @@ function runSimulation() {
   const area = referenceArea(rocket);
 
   const result = simulateFlight({
-    motor, dryMass, Cd, area,
+    motor, dryMass, Cd, area, rocket,
     useParachute: true,
     parachuteArea: Math.max(0.1, area * 40), // rough chute size from body size
   });
@@ -304,4 +304,10 @@ projectFile.addEventListener("change", async () => {
     projectStatus.textContent = "Project loaded. Previous simulation cleared.";
   } catch (error) { projectStatus.textContent = "Load failed: " + error.message; }
   finally { projectFile.value = ""; }
+});
+
+const plotSelect = document.getElementById("plot-select");
+plotSelect.addEventListener("change", () => {
+  flight.plotType = plotSelect.value;
+  if (flight.result) flight.drawPlot();
 });

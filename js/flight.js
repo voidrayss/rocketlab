@@ -1,3 +1,5 @@
+import { flightPlot } from "./plots.js";
+
 // ===========================================================================
 // flight.js — the animated flight view + telemetry gauges + altitude plot.
 //
@@ -198,31 +200,34 @@ export class FlightView {
     const W = this.plotCanvas.width, H = this.plotCanvas.height;
     ctx.clearRect(0, 0, W, H);
     const pad = 36;
-    const samples = this.result.samples;
-    const tMax = samples[samples.length - 1].t || 1;
-    const yMax = this.result.stats.apogee || 1;
-
-    // Axes.
+    const data = flightPlot(this.result, this.plotType || "altitude");
+    const note = document.getElementById("plot-note");
+    if (note) note.textContent = data.note;
+    const x = t => pad + (t / data.tMax) * (W - pad - 10);
+    const y = value => H - pad - ((value - data.min) / (data.max - data.min)) * (H - pad - 20);
     ctx.strokeStyle = "#2a333f";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(pad, 10); ctx.lineTo(pad, H - pad); ctx.lineTo(W - 10, H - pad);
+    ctx.moveTo(pad, 20); ctx.lineTo(pad, H - pad); ctx.lineTo(W - 10, H - pad);
+    ctx.moveTo(pad, y(0)); ctx.lineTo(W - 10, y(0));
     ctx.stroke();
-
     ctx.fillStyle = "#8b98a8";
     ctx.font = "10px system-ui";
-    ctx.fillText("alt (m)", 4, 10);
-    ctx.fillText("t (s)", W - 30, H - 8);
-    ctx.fillText(yMax.toFixed(0), 4, 22);
-    ctx.fillText(tMax.toFixed(1), W - 30, H - pad + 14);
-
-    // Altitude curve.
+    ctx.fillText(`${data.label} (${data.unit})`, pad, 12);
+    ctx.fillText(data.max.toFixed(1), 0, 24);
+    ctx.fillText(data.min.toFixed(1), 0, H - pad);
+    ctx.fillText("0 s", pad, H - pad + 14);
+    ctx.fillText(`${data.tMax.toFixed(1)} s`, W - 48, H - pad + 14);
+    if (!data.points.length) {
+      ctx.fillText("No data available. Launch a rocket first.", pad, H / 2);
+      return;
+    }
     ctx.strokeStyle = "#ff6b3d";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    samples.forEach((s, i) => {
-      const px = pad + (s.t / tMax) * (W - pad - 10);
-      const py = (H - pad) - (Math.max(0, s.y) / yMax) * (H - pad - 10);
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    data.points.forEach((point, i) => {
+      if (i === 0) ctx.moveTo(x(point.t), y(point.value));
+      else ctx.lineTo(x(point.t), y(point.value));
     });
     ctx.stroke();
   }

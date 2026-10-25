@@ -137,7 +137,7 @@ export function simulateFlight({ motor, dryMass, Cd, area,
 
     samples.push({
       t, y: Math.max(0, state.y), v: state.v, speed,
-      mass, thrust, mach,
+      mass, thrust, mach, accel,
       parachute: ctx.parachute.deployed,
     });
 
