@@ -187,6 +187,18 @@ try {
  await click('[data-add="finCan"]');assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
  await click('#component-list [data-type="finCan"] .del');await click('[data-add="finCan"]');
  assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
+ for(const [field,value] of [['finOffset',.08],['rootChord',.12],['tipChord',.08],['sweep',.05]])await evaluate(`const input=document.querySelector('[data-field=${field}]');input.value=${value};input.dispatchEvent(new Event('change'));`);
+ await evaluate('const input=document.querySelector("[data-field=finOffset]");input.value="0.12";input.dispatchEvent(new Event("change"));');
+ assert.equal(await evaluate('document.querySelector("[data-field=finOffset]").value'),'0.08');
+ await click('#open-part');await evaluate('document.querySelector("#cad-panel").open=true;');await click('#cad-generate');
+ await until(()=>evaluate('!document.querySelector("#cad-generate").disabled'),100000);
+ assert(await evaluate('!document.querySelector("#cad-step").disabled'),await evaluate('document.querySelector("#cad-status").textContent'));
+ const overhang=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(overhang.valid&&overhang.solids===1&&Math.abs(overhang.boundsMm[1][2]-210)<1e-7);
+ assert((await evaluate('document.querySelector("#part-properties").textContent')).includes((overhang.volumeMm3*.0012).toFixed(3)+' g'));
+ await click('#cad-step');await click('#cad-stl');await click('#part-done');
+ console.log('PASS: aft-overhang controls, disconnected rejection, true CAD extent and mass agreement');
+
  await click('#view3d-btn');await until(()=>evaluate('!!document.querySelector("#viewer3d canvas")'),40000);
  const marker=await evaluate('({cg:Number(document.querySelector("#viewer3d canvas").dataset.cgM),cp:Number(document.querySelector("#viewer3d canvas").dataset.cpM),visible:document.querySelector("#viewer3d canvas").dataset.markersVisible})');
  assert(marker.cg>0 && marker.cp>0 && marker.visible==='true');

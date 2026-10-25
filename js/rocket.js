@@ -84,16 +84,16 @@ export function createTransition({ length = 0.05, frontDiameter = 0.05,
 
 export function createFins({ count = 3, rootChord = 0.08, tipChord = 0.04,
                              span = 0.05, sweep = 0.04, thickness = 0.003,
-                             material = "plywood" } = {}) {
+                             material = "plywood", finOffset=0 } = {}) {
   return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.FINS, name:"Fin set",
-           count, rootChord, tipChord, span, sweep, thickness, material };
+           count, rootChord, tipChord, span, sweep, thickness, material, finOffset };
 }
 
 export function createFinCan({ length = 0.12, diameter = 0.05, innerDiameter = 0.046,
   count = 3, rootChord = 0.08, tipChord = 0.04, span = 0.05, sweep = 0.04,
-  thickness = 0.003, material = "plastic" } = {}) {
+  thickness = 0.003, material = "plastic", finOffset=null } = {}) {
   const c = { id: makeId(), uid: newUID(), type: "finCan", name:"Fin can", length, diameter, innerDiameter,
-    count, rootChord, tipChord, span, sweep, thickness, material };
+    count, rootChord, tipChord, span, sweep, thickness, material, finOffset };
   validateFinCan(c);
   return c;
 }
@@ -230,6 +230,8 @@ export function maxBodyDiameter(rocket) {
 
 // Total length of the rocket along the centerline. Fins attach to the body
 // and don't add to the length, so they're skipped.
-export function totalLength(rocket) { return resolveAssembly(rocket).overallEnd; }
+export function totalLength(rocket) { const r=resolveAssembly(rocket);return r.overallEnd-r.overallStart; }
 export function bodyLength(rocket) { return resolveAssembly(rocket).bodyEnd; }
 export function layoutPositions(rocket) { return resolveAssembly(rocket).assemblyPositions; }
+
+export function overallBounds(rocket){const r=resolveAssembly(rocket);return {min:r.overallStart,max:r.overallEnd};}

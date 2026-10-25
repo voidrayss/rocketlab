@@ -57,17 +57,22 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   identities/relationship remapping, visibility/exploded display, 3D selection,
   and toggleable CG/CP markers. See docs/WORKSPACES.md.
 
-- Manufacturing-nose milestone (commit containing this entry): optional fitted
+- `20129db`: manufacturing-nose milestone: optional fitted
   hollow/solid shoulder and join web, radial-wall nose profile, shared analytic
   volume/CG and B-rep, STEP/STL/metadata support for all six nose families, and
   body-aware creation. Legacy noses preserve prior mass behavior. Curved profiles
   use 48 axial bands rather than analytic spline surfaces.
 
+- Fin-overhang milestone (commit containing this entry): signed root offsets,
+  complete unclipped plates with supported root connectors, analytic union
+  volume/CG, actual CP positions, overall forward/aft bounds, body-based motor
+  position/fineness, matching 2D/3D and validated STEP/STL geometry.
+
 ## Current development phase
 
 Implement the two new user directives for Builder/CAD/manufacturing and Part
 Studio/Assembly. Shared state, constraints, recreation, workspaces and markers
-and shoulders are operational. Next: valid aft-overhang fin geometry, then
+and shoulders are operational. Next: fin parameterization and search, then
 fin parameterization/profiles/search, authoritative motors and recovery settings.
 Keep the existing CAD and numerical corrections intact.
 
@@ -76,8 +81,9 @@ Keep the existing CAD and numerical corrections intact.
 1. Shoulder refinements: optional fillets/transition, richer analytic curved
    surfaces or controlled adaptive profile accuracy. Initial fitted shoulder,
    solid export and matched mass/CG are complete.
-2. Fin axial offsets/overhang beyond sleeve/body, while maintaining a connected
-   solid; consistent overall bounds, CP, CG, 2D/3D and exports.
+2. Refine cantilever/root stress and support recommendations; initial signed
+   fin offsets/overhang, connected solids and engineering/display integration
+   are complete. Connectivity alone is not structural validation.
 3. Fin angle controls, planform/cross-section options, root fillets, deterministic
    objective/constraint-driven search. Do not claim high-fidelity drag/strength.
 4. Real sourced motor catalog expansion, file import, duplicate prevention,
@@ -96,7 +102,7 @@ Keep the existing CAD and numerical corrections intact.
 
 Verified 2026-10-25 (America/New_York):
 
-- `node scripts/check.mjs`: all fourteen smoke tests and source syntax PASS, including assembly constraints.
+- `node scripts/check.mjs`: all fifteen smoke tests and source syntax PASS, including assembly constraints.
   Includes numerical analytic references, all 12 shipped motor files, imported
   geometry schema/mass/CG/transforms/persistence, rings, and static OpenRocket
   CP/fin-centroid checks.
@@ -112,7 +118,9 @@ Verified 2026-10-25 (America/New_York):
   and part files, attachment recreation, direct 3D selection, markers and v3
   identity/relationship reload; offline part editing also PASS. Shoulder unit
   and kernel checks cover all six families, hollow/solid and no-shoulder shells,
-  volume/centroid equality, topology and independent STEP-reader opening.
+  volume/centroid equality, topology and independent STEP-reader opening. Fin
+  overhang cases also pass exact volume/CG, real extents, single-solid topology,
+  STEP read-back and the independent reader.
   OS file dialog is intercepted through DevTools, not visually automated.
 - Inactive Pages template parses via Ruby/Psych; manual-only trigger/main guard
   confirmed. Actual deployment is untested and not enabled.
@@ -181,8 +189,9 @@ Verified 2026-10-25 (America/New_York):
 ## Next actions
 
 1. Read AGENTS.md, this file, status/history; preserve HANDOFF.md.
-2. Add valid fin-can axial overhangs with matching CAD,
-   analytic volume/centroid, assembly and browser regressions.
+2. Add consistent fin angles/planform presets and deterministic objective-driven
+   static searches; root fillets and additional cross-sections remain separate
+   geometry/engineering validation tasks.
 3. Continue the ordered roadmap above, updating this status and committing/
    pushing each tested milestone to development/rocketlab-2.
 4. CAD binaries/readers are temporary development utilities, not workspace or

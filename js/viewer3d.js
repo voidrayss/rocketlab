@@ -1,5 +1,5 @@
 import { noseGeometry } from "./nose.js";
-import { resolveAssembly } from "./assembly.js";
+import { resolveAssembly, finStart } from "./assembly.js";
 import { localPart } from "./components.js";
 import { importedPoint } from "./imported.js";
 // ===========================================================================
@@ -31,7 +31,7 @@ import {
   noseConeProfile,
   layoutPositions,
   totalLength,
-  maxBodyDiameter,
+  maxBodyDiameter, overallBounds,
 } from "./rocket.js";
 
 // Palette matched to the 2D view / dark theme.
@@ -168,7 +168,7 @@ export class Viewer3D {
         sleeve.rotation.x = Math.PI / 2;
         sleeve.position.y = -x0;
         mesh.add(sleeve);
-        if (c.type === "finCan") mesh.add(this._buildFins(c, c.diameter, x0 + c.length - c.rootChord));
+        if (c.type === "finCan") mesh.add(this._buildFins(c, c.diameter, x0 + finStart(c)));
       } else if (c.type === COMPONENT_TYPES.FINS) {
         mesh = this._buildFins(c, maxD, x0);
       }
@@ -184,7 +184,7 @@ export class Viewer3D {
     // Center the rocket on the grid: our model runs along +Y from the nose
     // tip (y = 0) downward. Shift so the body midpoint sits at the origin and
     // the nose points up.
-    this.rocketGroup.position.set(0, L / 2+(this.exploded?Math.max(0,visibleIndex-1)*.03:0), 0);
+    this.rocketGroup.position.set(0, (overallBounds(rocket).min+overallBounds(rocket).max)/2+(this.exploded?Math.max(0,visibleIndex-1)*.03:0), 0);
     this._drawMarkers(maxD);
 
     // Frame the camera to the rocket size the first time we draw something.

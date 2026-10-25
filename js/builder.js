@@ -1,4 +1,4 @@
-import { resolveAssembly, assembled } from "./assembly.js";
+import { resolveAssembly, assembled, finStart } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported, importedPoint } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
@@ -13,7 +13,7 @@ import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 
 import { COMPONENT_TYPES, MATERIALS, layoutPositions, bodyLength, totalLength,
-         frontDiameter, rearDiameter, maxBodyDiameter, noseConeProfile } from "./rocket.js";
+         frontDiameter, rearDiameter, maxBodyDiameter, noseConeProfile, overallBounds } from "./rocket.js";
 import { stabilityMargin } from "./aero.js";
 import { getMotor } from "./motors.js";
 import { buildReport } from "./analysis.js";
@@ -53,6 +53,7 @@ const FIELDS = {
     { key: "span",      label: "Span (m)",       step: 0.005 },
     { key: "sweep",     label: "Sweep (m)",      step: 0.005 },
     { key: "thickness", label: "Thickness (m)",  step: 0.0005 },
+    {key:"finOffset",label:"Fin axial offset (m; relative to sleeve start / tail alignment)",step:.005},
     { key: "material",  label: "Material",       type: "select", options: Object.keys(MATERIALS) },
   ],
 };
@@ -126,7 +127,7 @@ export class Builder {
     const margin = 60;
     const scale = (H - 2 * margin) / L;
     const cx = W / 2;
-    const topY = margin;
+    const topY = margin-overallBounds(rocket).min*scale;
 
     const pos = layoutPositions(rocket);
 
@@ -190,7 +191,7 @@ export class Builder {
       }
 
       else if (c.type === COMPONENT_TYPES.FINS || c.type === "finCan") {
-        const finY = c.type === "finCan" ? y + (c.length - c.rootChord) * scale : y;
+        const finY = c.type === "finCan" ? y + finStart(c) * scale : y;
         if (c.type === "finCan") {
           ctx.strokeRect(cx - c.diameter * scale / 2, y, c.diameter * scale, c.length * scale);
         }
@@ -319,7 +320,7 @@ export class Builder {
         input = document.createElement("input");
         input.type = "number";
         input.step = f.step;
-        input.value = c[f.key];
+        input.value = f.key==="finOffset"?(c.finOffset??finStart(c)):c[f.key];
         input.addEventListener("change", () => {
           const v = Number(input.value);
           if (!Number.isFinite(v)) return;
@@ -328,10 +329,10 @@ export class Builder {
             if (c.type === "ring") ringProperties(candidate);
             else if (c.type === "imported") validateImported(candidate);
             else if (c.type === "finCan") validateFinCan(candidate);
-            else if (v <= 0 && f.key !== "sweep") throw new Error("Dimension must be positive.");
+            else if (v <= 0 && !["sweep","finOffset"].includes(f.key)) throw new Error("Dimension must be positive.");
             this.commit(c,{[f.key]:candidate[f.key]});
           } catch (error) {
-            input.value = c[f.key];
+            input.value = f.key==="finOffset"?(c.finOffset??finStart(c)):c[f.key];
             document.getElementById("project-status").textContent = error.message;
           }
         });

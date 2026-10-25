@@ -42,6 +42,16 @@ for(const count of [2,3,4,6,12]) {
  }
  console.log(`PASS: ${count}-fin single solid, analytic mass/CG, STEP round trip${independent?', independent parser/volume':''}`);
 }
+for(const dimensions of [{finOffset:.08,rootChord:.12,tipChord:.08,sweep:.05},{finOffset:-.08,rootChord:.2,tipChord:.12,sweep:-.05}]){
+ const c=createFinCan(dimensions),p=finCanProperties(c),r=cadJob(oc,{component:c});
+ assert(r.properties.valid&&r.properties.solids===1);
+ assert(Math.abs(r.properties.volumeMm3-p.volume*1e9)<.00001);
+ assert(Math.abs(r.properties.centroidMm[2]-p.centroidX*1000)<1e-6);
+ const start=c.finOffset,expectedMax=Math.max(c.length,start+Math.max(c.rootChord,c.sweep+c.tipChord))*1000;
+ assert(Math.abs(r.properties.boundsMm[1][2]-expectedMax)<1e-7);
+ if(independent)assert(independent.ReadStepFile(r.step,null).success);
+ console.log('PASS: overhanging connected fin solid, actual bounds, exact volume/centroid and STEP reader');
+}
 for(const shape of ['conical','ogive','vonKarman','haack','parabolic','elliptical']) {
  const nose=createNose({shape,shoulderEnabled:true});const analytic=noseGeometry(nose,noseConeProfile(nose,48));
  const result=cadJob(oc,{component:nose});assert(result.properties.valid&&result.properties.solids===1);

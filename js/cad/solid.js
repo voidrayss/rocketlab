@@ -85,14 +85,19 @@ export function cadJob(oc, job) {
       shape=boolean('BRepAlgoAPI_Cut_3',shapeOf(new oc.BRepPrimAPI_MakeCylinder_1(R,c.length)),shapeOf(new oc.BRepPrimAPI_MakeCylinder_1(r,c.length)));
       if(component.type==='finCan') for(let n=0;n<component.count;n++) {
         const angle=2*Math.PI*n/component.count,cos=Math.cos(angle),sin=Math.sin(angle);
-        const z0=c.length-c.rootChord,root=(R+r)/2;
-        const outline=[[root,z0],[R,z0],[R+c.span,z0+c.sweep],[R+c.span,z0+c.sweep+c.tipChord],[R,z0+c.rootChord],[root,z0+c.rootChord]];
-        const pts=outline.map(([x,z])=>point(x*cos+c.thickness/2*sin,x*sin-c.thickness/2*cos,z));
-        const wire=keep(new oc.BRepBuilderAPI_MakeWire_1());
-        for(let i=0;i<pts.length;i++) wire.Add_1(keep(keep(new oc.BRepBuilderAPI_MakeEdge_3(pts[i],pts[(i+1)%pts.length])).Edge()));
-        const face=keep(new oc.BRepBuilderAPI_MakeFace_15(keep(wire.Wire()),true));
-        const vec=keep(new oc.gp_Vec_4(-c.thickness*sin,c.thickness*cos,0));
-        const fin=shapeOf(new oc.BRepPrimAPI_MakePrism_1(keep(face.Face()),vec,true,true));
+        const z0=(component.finOffset??(component.length-component.rootChord))*1000,root=(R+r)/2;
+        const makePrism=outline=>{
+          const pts=outline.map(([x,z])=>point(x*cos+c.thickness/2*sin,x*sin-c.thickness/2*cos,z));
+          const wire=keep(new oc.BRepBuilderAPI_MakeWire_1());
+          for(let i=0;i<pts.length;i++)wire.Add_1(keep(keep(new oc.BRepBuilderAPI_MakeEdge_3(pts[i],pts[(i+1)%pts.length])).Edge()));
+          const face=keep(new oc.BRepBuilderAPI_MakeFace_15(keep(wire.Wire()),true));
+          const vec=keep(new oc.gp_Vec_4(-c.thickness*sin,c.thickness*cos,0));
+          return shapeOf(new oc.BRepPrimAPI_MakePrism_1(keep(face.Face()),vec,true,true));
+        };
+        const plate=makePrism([[R,z0],[R+c.span,z0+c.sweep],[R+c.span,z0+c.sweep+c.tipChord],[R,z0+c.rootChord]]);
+        const lo=Math.max(0,z0),hi=Math.min(c.length,z0+c.rootChord);
+        const connector=makePrism([[root,lo],[R,lo],[R,hi],[root,hi]]);
+        const fin=boolean('BRepAlgoAPI_Fuse_3',plate,connector);
         shape=boolean('BRepAlgoAPI_Fuse_3',shape,fin);
       }
     }

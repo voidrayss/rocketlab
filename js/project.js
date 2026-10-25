@@ -49,7 +49,8 @@ export function parseProject(text) {
     if (c.type === 'fins' || c.type === 'finCan') {
       if (!Number.isInteger(c.count) || c.count < 1 || c.count > 32) throw new Error('Fin count must be an integer from 1 to 32.');
       if (!Number.isFinite(c.sweep) || Math.abs(c.sweep) > 100) throw new Error('Invalid fin sweep.');
-      Object.assign(params, { count: c.count, sweep: c.sweep });
+      if(c.finOffset!==undefined && c.finOffset!==null && (!Number.isFinite(c.finOffset)||Math.abs(c.finOffset)>2))throw new Error('Invalid fin axial offset.');
+      Object.assign(params, { count: c.count, sweep: c.sweep, ...(c.finOffset!==undefined?{finOffset:c.finOffset}:{}) });
     } else {
       const diameter = c.type === 'transition' ? Math.min(c.frontDiameter, c.rearDiameter) : c.diameter;
       if (c.wallThickness * 2 >= diameter) throw new Error('Wall thickness must leave a hollow interior.');

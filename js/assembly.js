@@ -77,13 +77,16 @@ export function resolveAssembly(rocket) {
     if((c.type==='finCan'&&a.fit==='over'&&c.innerDiameter<p.diameter)||(c.type==='finCan'&&a.fit==='inside'&&c.diameter>bore)||(c.type==='nose'&&c.shoulderEnabled&&c.shoulderDiameter>bore)||(c.type==='ring'&&c.diameter>bore))warnings.push((c.name||c.type)+': interference with body material. Fix the locked/manual fit before manufacturing; no automatic material subtraction is performed.');
     if(c.type==='nose'&&c.shoulderEnabled&&c.shoulderLength>p.length)warnings.push('The nose shoulder is longer than its body. Confirm assembly fit.');
   }
-  let overallEnd=bodyEnd;
+  let overallEnd=bodyEnd,overallStart=0;
   for(const c of all)if(assembled(c)){
     if(c.type==='nose'&&c.shoulderEnabled)overallEnd=Math.max(overallEnd,pos.get(c.id)+c.length+c.shoulderLength);
+    if(c.type==='fins')overallStart=Math.min(overallStart,pos.get(c.id)+Math.min(0,c.sweep));
+    if(c.type==='finCan')overallStart=Math.min(overallStart,pos.get(c.id)+finStart(c)+Math.min(0,c.sweep));
+    if(!internal(c)&&c.type!=='fins')overallStart=Math.min(overallStart,pos.get(c.id)??0);
     if(c.type==='fins')overallEnd=Math.max(overallEnd,pos.get(c.id)+Math.max(c.rootChord,c.sweep+c.tipChord));
     if(c.type==='finCan')overallEnd=Math.max(overallEnd,pos.get(c.id)+finStart(c)+Math.max(c.rootChord,c.sweep+c.tipChord));
   }
-  return {...rocket,components:all.filter(assembled),libraryComponents:all,assemblyPositions:pos,bodyEnd,overallEnd,assemblyWarnings:warnings,[RESOLVED]:true};
+  return {...rocket,components:all.filter(assembled),libraryComponents:all,assemblyPositions:pos,bodyEnd,overallEnd,overallStart,assemblyWarnings:warnings,[RESOLVED]:true};
 }
 export function applyAssembly(rocket){
   const resolved=resolveAssembly(rocket);

@@ -152,7 +152,8 @@ export function buildReport(rocket, motor) {
   if (!s.launched) warnings.push("The rocket never lifted off the launch pad.");
   else if (!s.railCleared) warnings.push("The rocket did not clear the launch rail.");
   if (s.termination === "time-limit") warnings.push("Simulation time limit reached before landing.");
-  if (rocket.components.some(c => c.type === "finCan")) warnings.push("Fin cans are inline sleeve sections. Do not add another tube or fin set for the same physical part. Sleeve-step drag and structural strength are not validated; flutter uses the first fin set.");
+  for(const c of rocket.components.filter(c=>c.type==="finCan"))if(finCanProperties(c).supportFraction<.5)warnings.push("Less than half the fin root is supported by its sleeve. Solid connectivity is checked; cantilever/root strength is not validated.");
+  if (rocket.components.some(c => c.type === "finCan")) warnings.push("Fin cans are counted as one physical sleeve/fin set. Sleeve-step drag and root/cantilever strength are not validated; flutter uses the first fin set. Confirm manual fits and body slots for inside-body sleeves.");
   if (calibers < 1) warnings.push("Stability margin is below 1 caliber.");
 
   // Honesty note: curve motors come from the shipped .eng files, whose thrust

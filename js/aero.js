@@ -1,5 +1,5 @@
 import { noseGeometry } from "./nose.js";
-import { resolveAssembly } from "./assembly.js";
+import { resolveAssembly, finStart } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { importedPoint } from "./imported.js";
 import { finCanProperties, finAxialCentroid } from "./fincan.js";
@@ -19,7 +19,7 @@ import { finCanProperties, finAxialCentroid } from "./fincan.js";
 // ===========================================================================
 
 import { COMPONENT_TYPES, MATERIALS, layoutPositions, maxBodyDiameter,
-         totalLength, noseConeProfile, canonicalNoseShape } from "./rocket.js";
+         bodyLength, totalLength, noseConeProfile, canonicalNoseShape } from "./rocket.js";
 // Circular import with physics.js (it imports massProperties/centerOfPressure
 // from here). Safe ONLY because every use of `atmosphere` below is lazy (inside
 // a function body), never at module top level. Do not call atmosphere() while
@@ -187,7 +187,7 @@ export function centerOfPressure(rocket) {
       const cn = kfb * term;
 
       // Fin CP location along the root chord (Barrowman).
-      const xf = x0 + (c.type === "finCan" ? c.length - c.rootChord : 0); // fin root leading edge position
+      const xf = x0 + (c.type === "finCan" ? finStart(c) : 0); // fin root leading edge position
       const xcp = xf
         + (c.sweep / 3) * ((cr + 2 * ct) / (cr + ct))
         + (1 / 6) * ((cr + ct) - (cr * ct) / (cr + ct));
@@ -267,7 +267,7 @@ export function referenceArea(rocket) {
 // ---------------------------------------------------------------------------
 export function finenessRatio(rocket) {
   rocket=resolveAssembly(rocket);
-  const L = totalLength(rocket);
+  const L = bodyLength(rocket);
   const d = maxBodyDiameter(rocket);
   return d > 0 ? L / d : 0;
 }

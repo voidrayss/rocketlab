@@ -11,8 +11,8 @@ without duplicate tail fins; additional reusable parts can be library-only.
 Edit sleeve length, outside/inside diameters, fin count, root/tip chord, span,
 sweep, thickness, and material. Wall thickness is derived as (OD − ID)/2.
 Changes commit on Enter or blur. Invalid combinations leave the previous model
-intact. The current manufacturing profile is flat, with no fillets. Fins must
-fit axially within the sleeve and remain separated radially.
+intact. The current manufacturing profile is flat, with no fillets. Fins must remain connected to a positive root interval of the sleeve and
+separated radially; supported axial overhang is allowed.
 
 The sleeve and fins are one component in mass breakdowns. Its volume is the
 exact annular-cylinder volume plus the non-overlapping portions of extruded
@@ -231,3 +231,32 @@ valid single-solid topology, exact analytic volume/centroid agreement, STEP
 round trip and separately packaged STEP-reader opening. Hollow and solid shoulders
 and shoulder-free shells were also checked. Chrome checks cover a resized-body
 fit, live Part Studio shoulder length edit, and joined nose STEP/STL downloads.
+
+## Supported fin axial overhang
+
+Fin-can **fin axial offset** is the root leading-edge position relative to the
+sleeve start. Positive and negative values are accepted; an unset/null value
+retains trailing-root alignment (`sleeve length − root chord`). Separate fins
+use an offset relative to their tail-aligned root position. Root chord, sweep and
+tip chord may extend outside the sleeve, including beyond the body's aft end.
+
+A positive axial intersection between fin root and sleeve is required. Detached
+or effectively zero-overlap roots are rejected before changing the design or
+exporting. Small supported fractions produce a warning, not a strength claim.
+CAD extrudes the complete fin plate and joins it through a root connector only
+within that supported interval; there is no artificial fin clipping and no
+extra connector plate continuing unsupported through empty space.
+
+Engineering volume includes the complete plate plus only the curved root volume
+outside the sleeve at the supported interval. Axial CG weights both contributions
+at their actual positions. CP uses the actual fin leading edge. Overall display
+bounds include forward/aft overhangs, while motor placement and body fineness use
+the body extent rather than moving the motor to a protruding fin tip. Negative
+minimum bounds are framed by both 2D and 3D viewports. This remains a flat-plate,
+four-point planform model with simplified drag/flutter and no root stress solver.
+
+Positive/aft and negative/forward cases pass analytic mass/centroid, valid
+single-solid topology, actual-extents, STEP round-trip and independent-reader
+checks. Chrome verifies overhang editing, disconnected rejection, matching
+Part Studio/CAD mass, and STEP/STL export. Native projects and part files retain
+the axial offset.

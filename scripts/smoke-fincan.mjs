@@ -22,7 +22,7 @@ assert(Number.isFinite(stabilityMargin(r, .0258).calibers));
 assert(Number.isFinite(flutterVelocity(r).velocity));
 assert.equal(parseProject(serializeProject(r)).components.at(-1).innerDiameter, c.innerDiameter);
 assert(buildReport(r, getMotor('C6')).metrics.every(m => typeof m.value !== 'number' || Number.isFinite(m.value)));
-for (const bad of [{innerDiameter: .06}, {count: 1}, {thickness: .05}, {rootChord: .2}, {sweep: -.01}, {span: NaN}]) assert.throws(() => createFinCan(bad));
+for (const bad of [{innerDiameter: .06}, {count: 1}, {thickness: .05}, {finOffset: .12}, {sweep: NaN}, {span: NaN}]) assert.throws(() => createFinCan(bad));
 assert.throws(() => serializeProject({...r, components:[...r.components,createFins()]}));
 assert.equal(defaultRocket().components.length, 3);
 console.log('PASS: fin-can mass/CG, single aerodynamic fin set, placement, validation, project round trip');

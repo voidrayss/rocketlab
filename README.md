@@ -451,3 +451,9 @@ New manufacturing noses include an optional body-fitted hollow/solid shoulder,
 join web, geometry-consistent mass/CG, and STEP/STL/metadata export. Legacy noses
 remain unchanged until switched to the manufacturing model. Curved profiles use
 48 axial samples; see [CAD assumptions and verification](docs/CAD.md).
+
+
+Fin cans now support signed axial fin offsets and forward/aft overhang. Complete
+fin plates remain joined through a validated supported root interval. Mass/CG,
+CP, overall display bounds, and STEP/STL exports follow the same geometry;
+disconnected roots are rejected. See [CAD details](docs/CAD.md).

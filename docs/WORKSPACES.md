@@ -66,6 +66,7 @@ files, 3D selection/markers, recreation, and v3 project reload; offline Part Stu
 retains a functional parameter editor with an explicit 3D-unavailable message.
 
 Nose shoulders and profile-based nose solids are now operational; see CAD.md.
-Fin overhangs, root fillets, expanded planforms/cross-sections, fin search, motor
-catalog expansion and recovery settings are the remaining milestones.
+Supported fin axial overhang is also operational; see CAD.md. Root fillets,
+expanded planforms/cross-sections, fin search, motor catalog expansion and
+recovery settings remain.
 No unimplemented geometry option is represented as a working solid feature.
