@@ -33,7 +33,7 @@ try {
  let id=0;const pending=new Map(),exceptions=[];let chooserCount=0;
  ws.onmessage=({data})=>{const m=JSON.parse(data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(JSON.stringify(m.error))):p.resolve(m.result);}if(m.method==='Page.fileChooserOpened')chooserCount++;if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails.text);};
  const call=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
- const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression:'(() => eval('+JSON.stringify(expression)+'))()',awaitPromise:true,returnByValue:true,userGesture:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const evaluate=async expression=>{if(exceptions.length)throw Error('Uncaught browser error: '+exceptions.join('\n'));const r=await call('Runtime.evaluate',{expression:'(() => eval('+JSON.stringify(expression)+'))()',awaitPromise:true,returnByValue:true,userGesture:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
  const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
  const waitText=(selector,text,timeout)=>until(()=>evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent.includes(${JSON.stringify(text)})`),timeout);
  const downloaded=async suffix=>{const name=await until(async()=>(await readdir(dir)).find(f=>f.endsWith(suffix)));return dir+'/'+name;};
@@ -49,6 +49,11 @@ try {
   await click('#cad-generate');await waitText('#cad-status','CAD failed',30000);
   assert(await evaluate('!document.querySelector("#cad-generate").disabled'));
   assert.equal(exceptions.length,0,exceptions.join('\n'));
+  await click('#component-list [data-type="body"]');await click('#open-part');
+  await waitText('#part-properties','3D unavailable');
+  await evaluate('const length=document.querySelector("[data-field=length]");length.value="0.6";length.dispatchEvent(new Event("change"));');
+  await click('#part-done');
+  assert(await evaluate('document.querySelector("#view-build").classList.contains("active")'));
   console.log('PASS: CDN-unreachable startup, 2D fallback, and recoverable worker CAD load failure');
  } else {
  await click('[data-add="finCan"]');
@@ -56,7 +61,7 @@ try {
  await evaluate('const count=document.querySelector("[data-field=count]");count.value="4";count.dispatchEvent(new Event("change"));');
  await evaluate('const thick=document.querySelector("[data-field=thickness]");thick.value="0.004";thick.dispatchEvent(new Event("change"));');
  await evaluate('const inner=document.querySelector("[data-field=innerDiameter]");inner.value="0.1";inner.dispatchEvent(new Event("change"));');
- assert.equal(await evaluate('document.querySelector("[data-field=innerDiameter]").value'),'0.046');
+ assert.equal(await evaluate('document.querySelector("[data-field=innerDiameter]").value'),'0.0504');
  await click('#view3d-btn');
  await until(()=>evaluate('!!document.querySelector("#viewer3d canvas") || document.querySelector("#project-status").textContent.includes("unavailable")'),40000);
  assert(await evaluate('!!document.querySelector("#viewer3d canvas")'),await evaluate('document.querySelector("#project-status").textContent'));
@@ -123,7 +128,7 @@ try {
  await click('#save-project-btn');
  const customPath=await until(async()=>(await readdir(dir)).find(f=>f==='Browser_round_trip.json'));
  const custom=JSON.parse(await readFile(dir+'/'+customPath,'utf8'));
- assert.equal(custom.version,2);assert.equal(custom.rocket.components.at(-1).type,'imported');
+ assert.equal(custom.version,3);assert.equal(custom.rocket.components.at(-1).type,'imported');
  assert.equal(custom.rocket.components.at(-1).density,2700);assert.equal(custom.rocket.components.at(-1).rotationZ,45);
  assert(custom.rocket.components.at(-1).cad.stepBase64.length>1000);
  await choose('#project-file',dir+'/'+customPath);await waitText('#project-status','Project loaded');
@@ -148,6 +153,52 @@ try {
  const screenshot=await call('Page.captureScreenshot',{format:'png'});await writeFile(dir+'/verified.png',Buffer.from(screenshot.data,'base64'));
  assert.equal(exceptions.length,0,exceptions.join('\n'));
  console.log('PASS: CAD worker, B-rep preview, STEP/STL/metadata downloads, STEP import and volume');
+ await call('Page.navigate',{url:`http://127.0.0.1:${port}${basePath}/?studio-check`});await waitText('#analysis','Liftoff mass');
+ await click('#component-list [data-type="body"]');await click('#open-part');
+ await until(()=>evaluate('!!document.querySelector("#part-viewer canvas")'),40000);
+ const identity=await evaluate('document.querySelector("#part-properties").textContent.split("\\n")[0]');
+ await evaluate('const length=document.querySelector("[data-field=length]");length.value="0.65";length.dispatchEvent(new Event("change"));');
+ await evaluate('const diameter=document.querySelector("[data-field=diameter]");diameter.value="0.08";diameter.dispatchEvent(new Event("change"));');
+ await evaluate('const name=document.querySelector("[data-field=partName]");name.value="MainTube";name.dispatchEvent(new Event("change"));');
+ assert((await evaluate('document.querySelector("#part-properties").textContent')).includes(identity));
+ await evaluate('const projection=document.querySelector("#part-projection");projection.value="orthographic";projection.dispatchEvent(new Event("change"));');
+ await click('#duplicate-part');assert.equal(await evaluate('document.querySelectorAll("#part-list button").length'),4);
+ await click('#export-part');
+ const partPath=await until(async()=>(await readdir(dir)).find(f=>f.endsWith('.rocketpart.json')));
+ assert.equal(JSON.parse(await readFile(dir+'/'+partPath,'utf8')).format,'rocketlab-part');
+ await choose('#part-file',dir+'/'+partPath);await until(()=>evaluate('document.querySelectorAll("#part-list button").length===5'));
+ await click('#part-done');
+ await click('#component-list [data-type="nose"]');assert.equal(await evaluate('document.querySelector("[data-field=diameter]").value'),'0.08');
+ await click('#component-list [data-type="nose"] .del');await click('[data-add="nose"]');
+ assert.equal(await evaluate('document.querySelector("[data-field=diameter]").value'),'0.08');
+ await click('[data-add="finCan"]');assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
+ await click('#component-list [data-type="finCan"] .del');await click('[data-add="finCan"]');
+ assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=innerDiameter]").value'))-.0804)<1e-12);
+ await click('#view3d-btn');await until(()=>evaluate('!!document.querySelector("#viewer3d canvas")'),40000);
+ const marker=await evaluate('({cg:Number(document.querySelector("#viewer3d canvas").dataset.cgM),cp:Number(document.querySelector("#viewer3d canvas").dataset.cpM),visible:document.querySelector("#viewer3d canvas").dataset.markersVisible})');
+ assert(marker.cg>0 && marker.cp>0 && marker.visible==='true');
+ assert((await evaluate('document.querySelector("#marker-readout").textContent')).includes((marker.cg*1000).toFixed(2)+' mm'));
+ await click('#show-markers');assert.equal(await evaluate('document.querySelector("#viewer3d canvas").dataset.markersVisible'),'false');await click('#show-markers');
+ await click('#explode-view');assert.equal(await evaluate('document.querySelector("#viewer3d canvas").dataset.markersVisible'),'false');await click('#explode-view');
+ const hitRect=JSON.parse(await evaluate('JSON.stringify(document.querySelector("#viewer3d canvas").getBoundingClientRect())'));
+ const hitX=hitRect.x+hitRect.width/2,hitY=hitRect.y+hitRect.height/2;
+ await call('Input.dispatchMouseEvent',{type:'mousePressed',x:hitX,y:hitY,button:'left',clickCount:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:hitX,y:hitY,button:'left',clickCount:1});
+ assert(await evaluate('!!document.querySelector("#component-list [data-type=body].selected")'));
+
+ await evaluate('const name=document.querySelector("#project-name");name.value="Studio project";name.dispatchEvent(new Event("change"));');await click('#save-project-btn');
+ const studioProjectPath=await until(async()=>(await readdir(dir)).find(f=>f==='Studio_project.json'));
+ const studioProject=JSON.parse(await readFile(dir+'/'+studioProjectPath,'utf8'));
+ assert.equal(studioProject.version,3);assert.equal(studioProject.rocket.components.filter(c=>c.inAssembly===false).length,2);
+ const activeBody=studioProject.rocket.components.find(c=>c.type==='body' && c.inAssembly!==false);
+ assert.equal(activeBody.length,.65);assert.equal(activeBody.diameter,.08);
+ assert.equal(studioProject.rocket.components.find(c=>c.type==='nose').attachment.parentId,activeBody.id);
+ await choose('#project-file',dir+'/'+studioProjectPath);await waitText('#project-status','Project loaded');
+ await click('[data-tab="analysis"]');assert(await evaluate('document.querySelector("#analysis-workspace #analysis").textContent.includes("Liftoff mass")'));
+ await click('[data-tab="build"]');await click('#component-list [data-type="finCan"]');await click('#open-part');
+ const studioImage=await call('Page.captureScreenshot',{format:'png'});await writeFile(dir+'/studio.png',Buffer.from(studioImage.data,'base64'));
+ console.log('PASS: Part Studio, shared edits/identity, library duplication, part files, resize/recreate attachments, projection/explosion and v3 relationships');
+
  console.log('Artifacts: '+dir);
  }
 } finally {ws?.close();proc.kill();await new Promise(r=>server.close(r));}

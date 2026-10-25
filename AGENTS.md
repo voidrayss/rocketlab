@@ -39,6 +39,20 @@ Arbitrary CAD geometry has no automatic aerodynamic meaning: require a user
 interpretation or keep it out of applicable aerodynamic calculations explicitly.
 Review licenses before copying reference implementations such as OpenRocket.
 
+## Shared components and workspaces
+
+Part Studio and Assembly edit the same component objects. Use the atomic edit/
+creation functions in components.js; resolve dependencies through assembly.js.
+Do not introduce independent editable part copies in another workspace. Engines
+use a resolved, assembled-only view; library-only definitions have no engineering
+contribution. Visibility and exploded display are renderer settings, not mass or
+physics changes. Native v3 preserves stable part uid values while numeric runtime
+IDs are fresh on load; remap every attachment before dependency validation.
+Individual part import creates a fresh identity and an unassembled library part.
+Parent deletion preserves dependent parts in the library rather than discarding
+work or guessing a new parent. Locked/automatic diameter relationships must not
+be silently overwritten by manual dimension edits.
+
 ## CAD
 
 Use the existing optional OpenCascade worker and direct bindings. Generate

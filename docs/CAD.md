@@ -2,11 +2,11 @@
 
 ## Operational workflows
 
-Add a fin can from the Builder. It replaces separate tail fins and adds an
-inline hollow sleeve to the axial stack. It does not slide over an existing
-body tube. Existing body sections retain their length; total rocket length grows
-by the sleeve length. Only one fin can is permitted, without a duplicate tail
-fin set. The UI and JSON importer enforce this constraint.
+New fin cans now use persistent aft-body attachments and an over-body fit by
+default; inside/butt options are available. Legacy unattached fin cans remain
+inline. See [WORKSPACES.md](WORKSPACES.md) for shared Part Studio/Assembly, fit,
+creation/recreation and v3 project behavior. One assembled fin can is permitted
+without duplicate tail fins; additional reusable parts can be library-only.
 
 Edit sleeve length, outside/inside diameters, fin count, root/tip chord, span,
 sweep, thickness, and material. Wall thickness is derived as (OD − ID)/2.

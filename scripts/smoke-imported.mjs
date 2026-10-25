@@ -20,9 +20,9 @@ assert(Math.abs(massProperties(r).cg-(baseMass*baseCg+.0027*.205)/(baseMass+.002
 assert(Math.abs(massBreakdown(r).at(-1).grams-2.7)<1e-12);
 const external=createImported({...c,aeroRole:'body',length:.1,diameter:.08,axialOffset:.01});
 const ext={...r,components:[...r.components.slice(0,2),external]};
-assert.equal(totalLength(ext),.6);assert.equal(layoutPositions(ext).get(external.id),.51);
+assert.equal(totalLength(ext),.61);assert.equal(layoutPositions(ext).get(external.id),.51);
 assert(Math.abs(referenceArea(ext)-Math.PI*.04**2)<1e-12);
-const text=serializeProject(r);assert.equal(JSON.parse(text).version,2);
+const text=serializeProject(r);assert.equal(JSON.parse(text).version,3);
 const restored=parseProject(text),loaded=restored.components.at(-1);
 assert.notEqual(loaded.id,c.id);assert.deepEqual(loaded.cad,c.cad);assert.equal(loaded.density,2700);
 assert.equal(massProperties(restored).cg,massProperties(r).cg);

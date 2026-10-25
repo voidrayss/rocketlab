@@ -1,3 +1,4 @@
+import { resolveAssembly, assembled } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported, importedPoint } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
@@ -11,7 +12,7 @@ import { validateFinCan } from "./fincan.js";
 // It reads the shared rocket model and calls back into main.js on edits.
 // ===========================================================================
 
-import { COMPONENT_TYPES, MATERIALS, layoutPositions, totalLength,
+import { COMPONENT_TYPES, MATERIALS, layoutPositions, bodyLength, totalLength,
          frontDiameter, rearDiameter, maxBodyDiameter, noseConeProfile } from "./rocket.js";
 import { stabilityMargin } from "./aero.js";
 import { getMotor } from "./motors.js";
@@ -98,7 +99,7 @@ export class Builder {
 
   render(rocket) {
     this.rocket = rocket;
-    this.drawRocket(rocket);
+    this.drawRocket(resolveAssembly(rocket));
     this.renderList(rocket);
     this.renderEditor(rocket);
     this.renderStability(rocket);
@@ -130,6 +131,7 @@ export class Builder {
 
     // Draw each component.
     for (const c of rocket.components) {
+      if(c.visible===false)continue;
       const x0 = pos.get(c.id) ?? 0;
       const y = topY + x0 * scale;
 
@@ -209,7 +211,7 @@ export class Builder {
     // CG and CP markers.
     const motor = getMotor(rocket.motorId);
     const motorMass = motor.totalMass;
-    const motorX = L - 0.05;
+    const motorX = Math.max(0,bodyLength(rocket)-0.05);
     const { cg, cp } = stabilityMargin(rocket, motorMass, motorX);
 
     const cgY = topY + cg * scale;
@@ -233,11 +235,11 @@ export class Builder {
   renderList(rocket) {
     this.listEl.innerHTML = "";
     rocket.components.forEach((c) => {
-      const li = document.createElement("li");
+      const li = document.createElement("li");li.dataset.type=c.type;li.dataset.partUid=c.uid;
       if (c.id === this.selectedId) li.classList.add("selected");
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = c.type === "imported" ? c.name : LABELS[c.type];
+      name.textContent = (c.name || LABELS[c.type]) + (c.inAssembly===false ? " · library" : "") + (c.visible===false ? " · hidden" : "");
       li.appendChild(name);
 
       const del = document.createElement("button");
@@ -252,7 +254,7 @@ export class Builder {
 
       li.addEventListener("click", () => {
         this.selectedId = c.id;
-        this.render(rocket);
+        if(this.cb.onSelect)this.cb.onSelect(c.id);else this.render(rocket);
       });
       this.listEl.appendChild(li);
     });
@@ -266,7 +268,17 @@ export class Builder {
       return;
     }
     this.editorEl.innerHTML = `<strong>${LABELS[c.type]}</strong>`;
-    if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Inline sleeve section; wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
+    const nameLabel=document.createElement("label");nameLabel.textContent="Part name";
+    const name=document.createElement("input");name.type="text";name.maxLength=200;name.value=c.name||LABELS[c.type];name.dataset.field="partName";
+    name.addEventListener("change",()=>{if(name.value.trim())this.commit(c,{name:name.value.trim()});});
+    nameLabel.appendChild(name);this.editorEl.appendChild(nameLabel);
+    for(const [key,text] of [["inAssembly","Include in assembly / engineering"],["visible","Visible (display only)"]]){
+      const label=document.createElement("label"),input=document.createElement("input");input.type="checkbox";input.checked=c[key]!==false;input.dataset.field=key;
+      label.append(input,document.createTextNode(text));input.addEventListener("change",()=>this.commit(c,{[key]:input.checked}));this.editorEl.appendChild(label);
+    }
+    if(["nose","finCan","ring","body"].includes(c.type))this.renderAttachment(c,rocket);
+
+    if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Sleeve wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
     if (c.type === "ring") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal annular solid: exact volume and midpoint centroid; no external drag or CP. Confirm clearances and placement against your body and motor mount.</p>`);
     if (c.type === "imported") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal: mass only, absolute axial position. Body: explicit cylindrical aerodynamic proxy in the axial stack; offset is relative to its stack start. STEP geometry remains separate from that proxy. Rotations apply X then Y then Z.</p>`);
     for (const f of FIELDS[c.type]) {
@@ -284,14 +296,12 @@ export class Builder {
           input.appendChild(o);
         }
         input.addEventListener("change", () => {
-          c[f.key] = input.value;
-          if (c.type === "imported" && f.key === "material") c.density = MATERIALS[input.value];
-          this.cb.onChange();
+          this.commit(c,{[f.key]:input.value,...(c.type==="imported"&&f.key==="material"?{density:MATERIALS[input.value]}:{})});
         });
       } else if (f.type === "text") {
         input = document.createElement("input"); input.type="text";input.maxLength=200;input.value=c[f.key];
         input.addEventListener("change",()=>{
-          if(input.value.trim()) {c[f.key]=input.value.trim();this.cb.onChange();}
+          if(input.value.trim()) {this.commit(c,{[f.key]:input.value.trim()});}
           else input.value=c[f.key];
         });
       } else {
@@ -308,15 +318,15 @@ export class Builder {
             else if (c.type === "imported") validateImported(candidate);
             else if (c.type === "finCan") validateFinCan(candidate);
             else if (v <= 0 && f.key !== "sweep") throw new Error("Dimension must be positive.");
-            Object.assign(c, candidate);
-            document.getElementById("project-status").textContent = "";
-            this.cb.onChange();
+            this.commit(c,{[f.key]:candidate[f.key]});
           } catch (error) {
             input.value = c[f.key];
             document.getElementById("project-status").textContent = error.message;
           }
         });
       }
+      const controlled=c.attachment && ["diameter","innerDiameter","shoulderDiameter"].includes(f.key);
+      if(controlled && c.attachment.matching!=="manual") {input.disabled=true;input.title=c.attachment.matching==="auto"?"Derived from the attached body; switch matching to manual to override.":"Locked dimension.";}
       input.id = `component-${c.id}-${f.key}`;
       input.dataset.field = f.key;
       label.htmlFor = input.id;
@@ -324,10 +334,35 @@ export class Builder {
     }
   }
 
+  commit(c,patch){
+    try {this.cb.onEdit(c.id,patch);document.getElementById("project-status").textContent="";}
+    catch(error){document.getElementById("project-status").textContent=error.message;this.renderEditor(this.rocket);}
+  }
+  renderAttachment(c,rocket){
+    const section=document.createElement("fieldset"),legend=document.createElement("legend");legend.textContent="Assembly relationship";section.appendChild(legend);
+    const bodies=rocket.components.filter(p=>p.type==="body"&&p.id!==c.id&&p.inAssembly!==false);
+    const a=c.attachment;
+    const select=(key,labelText,options,value,change)=>{
+      const label=document.createElement("label"),input=document.createElement("select");label.textContent=labelText;input.dataset.field=key;
+      for(const [id,text] of options){const o=document.createElement("option");o.value=id;o.textContent=text;o.selected=String(id)===String(value);input.appendChild(o);}
+      input.addEventListener("change",()=>change(input.value));label.appendChild(input);section.appendChild(label);
+    };
+    select("attachmentParent","Concentric body",[["","Unattached"],...bodies.map(p=>[p.id,p.name||"Body tube #"+p.id])],a?.parentId??"",value=>this.commit(c,{attachment:value?{parentId:Number(value),end:c.type==="nose"?"forward":"aft",fit:c.type==="finCan"?"over":"butt",offset:0,clearance:.0002,matching:"auto"}:undefined}));
+    if(a){
+      select("matching","Diameter sizing",[["auto","Automatic"],["manual","Manual override"],["locked","Locked"]],a.matching,value=>this.commit(c,{attachment:{...a,matching:value}}));
+      if(c.type!=="nose")select("attachmentEnd","Body end",[["forward","Forward"],["aft","Aft"]],a.end,value=>this.commit(c,{attachment:{...a,end:value}}));
+      if(c.type==="finCan")select("attachmentFit","Sleeve fit",[["over","Sleeve over body"],["inside","Sleeve inside body (slots required)"],["butt","Inline butt joint"]],a.fit,value=>this.commit(c,{attachment:{...a,fit:value}}));
+      for(const [key,labelText,step] of [["offset","Axial offset (m)",.005],["clearance","Radial manufacturing clearance (m)",.0001]]){
+        const label=document.createElement("label"),input=document.createElement("input");label.textContent=labelText;input.type="number";input.step=step;input.value=a[key];input.dataset.field="attachment"+key;input.addEventListener("change",()=>this.commit(c,{attachment:{...a,[key]:Number(input.value)}}));label.appendChild(input);section.appendChild(label);
+      }
+    }
+    this.editorEl.appendChild(section);
+  }
+
   // ---- Stability readout ----------------------------------------------
   renderStability(rocket) {
     const motor = getMotor(rocket.motorId);
-    const motorX = (totalLength(rocket) || 0.5) - 0.05;
+    const motorX = Math.max(0,bodyLength(rocket)-0.05);
     const { cg, cp, dRef, calibers } = stabilityMargin(rocket, motor.totalMass, motorX);
 
     const stable = calibers >= 1 && calibers <= 2.5;

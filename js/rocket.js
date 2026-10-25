@@ -1,3 +1,4 @@
+import { resolveAssembly, defaultAttachment } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
@@ -31,6 +32,7 @@ export const COMPONENT_TYPES = {
 
 let nextId = 1;
 function makeId() { return nextId++; }
+export function newUID() { return crypto.randomUUID(); }
 
 // ---------------------------------------------------------------------------
 // Nose cone shape families.
@@ -58,34 +60,34 @@ export function canonicalNoseShape(shape) {
 
 export function createNose({ length = 0.15, diameter = 0.05, shape = "ogive",
                              material = "plastic", wallThickness = 0.002 } = {}) {
-  return { id: makeId(), type: COMPONENT_TYPES.NOSE,
+  return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.NOSE, name:"Nose cone",
            length, diameter, shape, material, wallThickness };
 }
 
 export function createBody({ length = 0.30, diameter = 0.05,
                              material = "cardboard", wallThickness = 0.001 } = {}) {
-  return { id: makeId(), type: COMPONENT_TYPES.BODY,
+  return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.BODY, name:"Body tube",
            length, diameter, material, wallThickness };
 }
 
 export function createTransition({ length = 0.05, frontDiameter = 0.05,
                                    rearDiameter = 0.08, material = "plastic",
                                    wallThickness = 0.002 } = {}) {
-  return { id: makeId(), type: COMPONENT_TYPES.TRANSITION,
+  return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.TRANSITION, name:"Transition",
            length, frontDiameter, rearDiameter, material, wallThickness };
 }
 
 export function createFins({ count = 3, rootChord = 0.08, tipChord = 0.04,
                              span = 0.05, sweep = 0.04, thickness = 0.003,
                              material = "plywood" } = {}) {
-  return { id: makeId(), type: COMPONENT_TYPES.FINS,
+  return { id: makeId(), uid: newUID(), type: COMPONENT_TYPES.FINS, name:"Fin set",
            count, rootChord, tipChord, span, sweep, thickness, material };
 }
 
 export function createFinCan({ length = 0.12, diameter = 0.05, innerDiameter = 0.046,
   count = 3, rootChord = 0.08, tipChord = 0.04, span = 0.05, sweep = 0.04,
   thickness = 0.003, material = "plastic" } = {}) {
-  const c = { id: makeId(), type: "finCan", length, diameter, innerDiameter,
+  const c = { id: makeId(), uid: newUID(), type: "finCan", name:"Fin can", length, diameter, innerDiameter,
     count, rootChord, tipChord, span, sweep, thickness, material };
   validateFinCan(c);
   return c;
@@ -94,13 +96,13 @@ export function createFinCan({ length = 0.12, diameter = 0.05, innerDiameter = 0
 export function createImported(options) {
   const c = {name:"Imported CAD",material:"plastic",density:MATERIALS.plastic,
     aeroRole:"internal",length:.1,diameter:.05,axialOffset:0,radialX:0,radialY:0,
-    rotationX:0,rotationY:0,rotationZ:0,...options,type:"imported",id:makeId()};
+    rotationX:0,rotationY:0,rotationZ:0,...options,type:"imported",id:makeId(),uid:newUID()};
   validateImported(c);
   return c;
 }
 
 export function createRing({length=.005,diameter=.048,innerDiameter=.029,axialOffset=.4,material="plywood"}={}) {
-  const c={id:makeId(),type:"ring",length,diameter,innerDiameter,axialOffset,material};
+  const c={id:makeId(),uid:newUID(),type:"ring",name:"Centering ring",length,diameter,innerDiameter,axialOffset,material};
   ringProperties(c); return c;
 }
 
@@ -108,15 +110,10 @@ export function isInternal(c) { return c.type === "ring" || (c.type === "importe
 
 // A default starter rocket so the app opens with something flyable.
 export function defaultRocket() {
-  return {
-    name: "My First Rocket",
-    components: [
-      createNose({ length: 0.15, diameter: 0.05, shape: "ogive" }),
-      createBody({ length: 0.35, diameter: 0.05 }),
-      createFins({ count: 3, rootChord: 0.08, tipChord: 0.04, span: 0.05, sweep: 0.04 }),
-    ],
-    motorId: "C6",
-  };
+  const nose=createNose({length:.15,diameter:.05,shape:"ogive"});
+  const body=createBody({length:.35,diameter:.05});
+  nose.attachment=defaultAttachment(body.id,"nose");
+  return {name:"My First Rocket",components:[nose,body,createFins()],motorId:"C6"};
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +215,7 @@ export function frontDiameter(c) {
 // The largest body diameter anywhere on the rocket — used as the reference
 // diameter for the stability margin (calibers).
 export function maxBodyDiameter(rocket) {
+  rocket=resolveAssembly(rocket);
   let d = 0;
   for (const c of rocket.components) {
     d = Math.max(d, frontDiameter(c), rearDiameter(c));
@@ -227,31 +225,6 @@ export function maxBodyDiameter(rocket) {
 
 // Total length of the rocket along the centerline. Fins attach to the body
 // and don't add to the length, so they're skipped.
-export function totalLength(rocket) {
-  let L = 0;
-  for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS || isInternal(c)) continue;
-    L += c.length;
-  }
-  return L;
-}
-
-// Returns the axial start position (x, measured from the nose tip) of each
-// non-fin component, plus where fins sit (anchored to the rear of the body).
-export function layoutPositions(rocket) {
-  const positions = new Map();
-  let x = 0;
-  for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS || isInternal(c)) continue;
-    positions.set(c.id, x + (c.type === "imported" ? c.axialOffset : 0));
-    x += c.length;
-  }
-  for (const c of rocket.components) if (isInternal(c)) positions.set(c.id, c.axialOffset);
-  // Fins: place their root trailing edge at the current body rear by default.
-  const bodyEnd = x;
-  for (const c of rocket.components) {
-    if (c.type !== COMPONENT_TYPES.FINS) continue;
-    positions.set(c.id, bodyEnd - c.rootChord);
-  }
-  return positions;
-}
+export function totalLength(rocket) { return resolveAssembly(rocket).overallEnd; }
+export function bodyLength(rocket) { return resolveAssembly(rocket).bodyEnd; }
+export function layoutPositions(rocket) { return resolveAssembly(rocket).assemblyPositions; }

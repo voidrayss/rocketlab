@@ -1,3 +1,5 @@
+import { applyAssembly, resolveAssembly } from "./assembly.js";
+import { editComponent, addComponent, deleteComponent, duplicateComponent, localPart } from "./components.js";
 import { bytesToBase64, base64ToBytes, stepHash, metadataComparison, verifyProjectAssets, PROJECT_LIMIT } from "./imported.js";
 import { runCAD } from "./cad/client.js";
 // ===========================================================================
@@ -10,18 +12,19 @@ import { runCAD } from "./cad/client.js";
 // ===========================================================================
 
 import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan, createImported, createRing, layoutPositions, MATERIALS,
-         totalLength } from "./rocket.js";
+         bodyLength, totalLength } from "./rocket.js";
 import { motorOptions, getMotor, loadEngFiles } from "./motors.js";
-import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
+import { massProperties, dragCoefficient, referenceArea, stabilityMargin } from "./aero.js";
 import { simulateFlight } from "./physics.js";
 import { Builder } from "./builder.js";
 import { FlightView } from "./flight.js";
-import { parseProject, serializeProject } from "./project.js";
+import { parseProject, serializeProject, serializePart, parsePart } from "./project.js";
 import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
 let rocket = defaultRocket();
 let cadResult = null, cadSnapshot = null, cadViewer = null, cadMetadata = null;
+let studioViewer=null, studioLoading=null;
 let view3dActive = false; // whether the 3D view is currently showing
 
 // ---- Builder view ------------------------------------------------------
@@ -35,8 +38,11 @@ const builder = new Builder(
   },
   {
     onChange: () => refresh(),
+    onSelect: id=>{builder.selectedId=id;refresh();},
+    onEdit: (id,patch)=>{editComponent(rocket,id,patch);clearFlight();refresh();},
     onDelete: (id) => {
-      rocket.components = rocket.components.filter((c) => c.id !== id);
+      deleteComponent(rocket,id);
+      clearFlight();
       if (builder.selectedId === id) builder.selectedId = null;
       refresh();
     },
@@ -51,9 +57,14 @@ let activeTab = "build";
 // Re-render the builder (2D + analysis) and, if the 3D view is showing, the
 // 3D scene too. Keeping this in one place means every edit path stays in sync.
 function refresh() {
+  applyAssembly(rocket);
   builder.render(rocket);
   invalidateCAD();
-  if (view3dActive && viewer) viewer.render(rocket);
+  const motor=getMotor(rocket.motorId), markers=stabilityMargin(rocket,motor.totalMass,Math.max(0,bodyLength(rocket)-.05));
+  const exploded=document.getElementById("explode-view").checked;
+  document.getElementById("marker-readout").textContent=`CG ${(markers.cg*1000).toFixed(2)} mm · CP ${(markers.cp*1000).toFixed(2)} mm · ${markers.calibers.toFixed(2)} cal`+(exploded?" (assembled values; markers hidden in exploded view)":"");
+  if (view3dActive && viewer) {viewer.selectedId=builder.selectedId;viewer.engineeringMarkers=markers;viewer.showMarkers=document.getElementById("show-markers").checked;viewer.render(rocket);}
+  updateStudio();
 }
 
 // ---- Flight view -------------------------------------------------------
@@ -76,23 +87,9 @@ const factories = {
 document.querySelectorAll("[data-add]").forEach((btn) => {
   btn.addEventListener("click", () => {
     const type = btn.dataset.add;
-    if ((type === "fins" || type === "finCan") && rocket.components.some(c => c.type === "finCan")) {
-      document.getElementById("project-status").textContent = "Edit or remove the existing fin can before adding another tail fin set.";
-      return;
-    }
-    const comp = factories[type]();
-    if (type === "finCan") {
-      rocket.components = rocket.components.filter(c => c.type !== "fins");
-      document.getElementById("project-status").textContent = "Separate tail fins replaced by one inline fin-can sleeve. Rocket length increases by the sleeve length.";
-    }
-    // Insert fins at the end, everything else before fins.
-    if (type === "fins") {
-      rocket.components.push(comp);
-    } else {
-      const firstFin = rocket.components.findIndex((c) => c.type === "fins");
-      if (firstFin === -1) rocket.components.push(comp);
-      else rocket.components.splice(firstFin, 0, comp);
-    }
+    let comp;
+    try {comp=addComponent(rocket,type,builder.selectedId);clearFlight();}
+    catch(error){document.getElementById("project-status").textContent=error.message;return;}
     builder.selectedId = comp.id;
     refresh();
   });
@@ -161,6 +158,8 @@ async function setCenterView(mode) {
       viewerLoading ??= import("./viewer3d.js");
       const { Viewer3D } = await viewerLoading;
       viewer = new Viewer3D(document.getElementById("viewer3d"));
+      viewer.exploded=document.getElementById("explode-view").checked;
+      viewer.onSelect=id=>{builder.selectedId=id;refresh();};
     } catch (error) {
       viewerLoading = null;
       document.getElementById("project-status").textContent = "3D unavailable. The 2D builder remains available. " + error.message;
@@ -174,7 +173,7 @@ async function setCenterView(mode) {
   document.getElementById("cad-3d").classList.toggle("active", view3dActive);
 
   if (view3dActive) {
-    viewer.render(rocket);
+    refresh();
     if (activeTab === "build") {
       try { viewer.start(); } catch (error) {
         setCenterView("2d");
@@ -190,23 +189,23 @@ document.getElementById("view3d-btn").addEventListener("click", () => setCenterV
 
 // ---- Tabs --------------------------------------------------------------
 function switchTab(name) {
-  activeTab = name;
-  if (name !== "build") cadViewer?.stop();
-  document.querySelectorAll(".tab").forEach((t) =>
-    t.classList.toggle("active", t.dataset.tab === name));
-  document.getElementById("view-build").classList.toggle("active", name === "build");
-  document.getElementById("view-fly").classList.toggle("active", name === "fly");
-
-  // Pause the 3D loop when the Builder tab is not visible; resume it when we
-  // come back and 3D is the selected center view. This avoids a hidden RAF
-  // loop rendering offscreen during flight.
-  if (name === "build" && view3dActive && viewer) {
-    viewer.render(rocket);
-    viewer.start();
-  } else {
-    viewer?.stop();
+  activeTab=name;
+  for(const tab of document.querySelectorAll(".tab"))tab.classList.toggle("active",tab.dataset.tab===name);
+  for(const [key,id] of [["build","view-build"],["part","view-part"],["fly","view-fly"],["analysis","view-analysis"]])document.getElementById(id).classList.toggle("active",key===name);
+  document.getElementById(name==="part"?"part-editor-host":"editor-home").appendChild(builder.editorEl);
+  document.getElementById(name==="part"?"part-status-host":"assembly-status-host").appendChild(document.getElementById("project-status"));
+  document.getElementById(name==="part"?"studio-actions-host":"assembly-actions-host").appendChild(document.getElementById("part-actions"));
+  document.getElementById(name==="part"?"part-cad-host":"assembly-cad-host").appendChild(document.getElementById("cad-panel"));
+  document.getElementById(name==="analysis"?"analysis-workspace":"analysis-home").appendChild(builder.analysisEl);
+  if(name==="build"&&view3dActive&&viewer){viewer.render(rocket);viewer.start();}else viewer?.stop();
+  if(name!=="part")studioViewer?.stop();
+  if(!["build","part"].includes(name))cadViewer?.stop();
+  if(name==="part"){
+    if(!rocket.components.some(c=>c.id===builder.selectedId))builder.selectedId=rocket.components[0]?.id??null;
+    refresh();openStudio();
   }
 }
+
 document.querySelectorAll(".tab").forEach((t) =>
   t.addEventListener("click", () => switchTab(t.dataset.tab)));
 document.getElementById("back-btn").addEventListener("click", () => switchTab("build"));
@@ -357,7 +356,7 @@ async function showCADResult(result, note) {
     const { Viewer3D } = await import("./viewer3d.js");
     cadViewer ??= new Viewer3D(document.getElementById("cad-viewer"));
     cadViewer.renderCAD(result.mesh, result.properties);
-    if (activeTab !== "build" || !document.getElementById("cad-panel").open) cadViewer.stop();
+    if (!["build","part"].includes(activeTab) || !document.getElementById("cad-panel").open) cadViewer.stop();
   } catch (error) {
     document.getElementById("cad-status").textContent += " 3D preview unavailable: " + error.message;
   }
@@ -391,7 +390,7 @@ for (const [id, key, ext, mime] of [["cad-step","step","step","application/step"
   document.getElementById(id).addEventListener("click", () => {
     invalidateCAD(); if (!cadResult || !cadSnapshot) return;
     const component = JSON.parse(cadSnapshot);
-    const metadata = {format:"rocketlab-cad",version:2,stepSha256:cadResult.sha256,rocketName:rocket.name,component,material:component.material,coordinateSystem:{units:"mm",axis:"+Z from sleeve front to rear",radial:"+X"},properties:cadResult.properties,tessellationToleranceMm:cadResult.toleranceMm,notice:"External edits may invalidate these parameters. Reinspect the STEP geometry."};
+    const metadata = {format:"rocketlab-cad",version:2,stepSha256:cadResult.sha256,rocketName:rocket.name,component,material:component.material,assemblyHint:component.attachment?{parentUid:rocket.components.find(c=>c.id===component.attachment.parentId)?.uid,attachment:component.attachment}:null,coordinateSystem:{units:"mm",axis:"+Z from sleeve front to rear",radial:"+X"},properties:cadResult.properties,tessellationToleranceMm:cadResult.toleranceMm,notice:"External edits may invalidate these parameters. Reinspect the STEP geometry."};
     downloadCAD(key === "metadata" ? JSON.stringify(metadata,null,2) : cadResult[key], `rocketlab-${component.type}-${component.id}.${ext}`, mime);
   });
 }
@@ -407,7 +406,7 @@ cadFile.addEventListener("change", async () => {
 });
 document.getElementById("component-list").addEventListener("click", invalidateCAD);
 document.getElementById("cad-panel").addEventListener("toggle", event => {
-  if (event.target.open && cadResult && activeTab === "build") cadViewer?.start();
+  if (event.target.open && cadResult && ["build","part"].includes(activeTab)) cadViewer?.start();
   else cadViewer?.stop();
 });
 
@@ -415,7 +414,11 @@ function installCADComponent(component) {
   const selected = selectedCADComponent();
   const replace = document.getElementById("cad-assembly-mode").value === "replace";
   if (replace && !selected) throw new Error("Select the physical component to replace, or choose Add a separate physical part.");
-  const components = replace ? rocket.components.map(c=>c.id===selected.id?component:c) : [...rocket.components,component];
+  const components = replace ? rocket.components.map(c=>{
+    if(c.id===selected.id)return component;
+    if(c.attachment?.parentId===selected.id)return component.type==="body"?{...c,attachment:{...c.attachment,parentId:component.id}}:{...c,attachment:undefined,inAssembly:false};
+    return c;
+  }) : [...rocket.components,component];
   // Validate the prospective assembly before changing shared state.
   serializeProject({...rocket,components});
   rocket.components=components; builder.selectedId=component.id;
@@ -467,14 +470,57 @@ document.getElementById("cad-restore").addEventListener("click",async()=>{
   document.getElementById("cad-restore").disabled=true;
   try {
     if(!cadResult?.sourceStep || !metadataComparison(cadMetadata,cadResult).canRestore)throw new Error("Unchanged STEP source and compatible metadata are required.");
-    const original=parseProject(JSON.stringify({format:"rocketlab",version:1,rocket:{name:"Restored CAD",motorId:rocket.motorId,components:[cadMetadata.component]}})).components[0];
+    const original=parseProject(JSON.stringify({format:"rocketlab",version:1,rocket:{name:"Restored CAD",motorId:rocket.motorId,components:[{...cadMetadata.component,attachment:undefined}]}})).components[0];
     const selectedId=builder.selectedId;
     const regenerated=await runCAD({component:original});
     if(builder.selectedId!==selectedId) throw new Error("Selection changed during regeneration. Try restoring again.");
     const checked=metadataComparison({format:"rocketlab-cad",version:1,properties:regenerated.properties},cadResult);
     if(!checked.propertiesMatch)throw new Error("Regenerated parameters differ from the imported geometry. Use custom CAD instead.");
+    const selected=selectedCADComponent();
+    const parent=rocket.components.find(c=>c.uid===cadMetadata.assemblyHint?.parentUid&&c.type==="body"&&c.inAssembly!==false);
+    if(selected?.attachment)original.attachment={...selected.attachment};
+    else if(parent)original.attachment={...cadMetadata.assemblyHint.attachment,parentId:parent.id};
     original.sourceStepSha256=cadResult.sha256;
     installCADComponent(original);
     document.getElementById("cad-status").textContent="Original parametric part restored. STEP fingerprint and regenerated solid properties both matched; no extra physical part was added when using Replace.";
   } catch(error) {document.getElementById("cad-status").textContent="Restore failed; assembly unchanged: "+error.message;}
 });
+
+function clearFlight(){
+  if(!flight?.result)return;flight.reset();flight.result=null;
+  flight.telemetryEl.textContent="Design changed. Launch again to regenerate the flight.";
+  flight.summaryEl.textContent="";flight.plotCtx.clearRect(0,0,flight.plotCanvas.width,flight.plotCanvas.height);
+}
+function updateStudio(){
+  const list=document.getElementById("part-list");list.textContent="";
+  for(const c of rocket.components){const button=document.createElement("button");button.textContent=(c.name||c.type)+(c.inAssembly===false?" · library":"");button.classList.toggle("active",c.id===builder.selectedId);button.addEventListener("click",()=>{builder.selectedId=c.id;refresh();});list.appendChild(button);}
+  const c=selectedCADComponent();
+  document.getElementById("part-title").textContent=c?(c.name||c.type):"Select a part";
+  if(c){
+    const properties=massProperties({components:[localPart(c)]});
+    document.getElementById("part-properties").textContent=`Part identity: ${c.uid}\nMass: ${(properties.mass*1000).toFixed(3)} g\nLocal axial CG: ${(properties.cg*1000).toFixed(2)} mm\n${c.inAssembly===false?"Library only — excluded from assembly engineering":"Included in assembly"}\nChanges apply live to this same part in Assembly.`;
+    if(activeTab==="part"&&studioViewer)studioViewer.renderPart(c);
+  }else {document.getElementById("part-properties").textContent="No selected part.";studioViewer?.render({components:[]});}
+}
+async function openStudio(){
+  if(studioViewer){studioViewer.start();studioViewer.grid.visible=false;return;}
+  try{
+    studioLoading??=import("./viewer3d.js");const {Viewer3D}=await studioLoading;
+    studioViewer??=new Viewer3D(document.getElementById("part-viewer"));
+    if(selectedCADComponent())studioViewer.renderPart(selectedCADComponent());
+    if(activeTab==="part"){studioViewer.start();studioViewer.grid.visible=false;studioViewer.setProjection(document.getElementById("part-projection").value);}else studioViewer.stop();
+  }catch(error){studioLoading=null;document.getElementById("part-properties").textContent+="\n3D unavailable; the shared parameter editor remains usable. "+error.message;}
+}
+document.getElementById("open-part").addEventListener("click",()=>switchTab("part"));
+document.getElementById("part-done").addEventListener("click",()=>switchTab("build"));
+document.getElementById("duplicate-part").addEventListener("click",()=>{try{const c=duplicateComponent(rocket,builder.selectedId);builder.selectedId=c.id;refresh();}catch(error){document.getElementById("project-status").textContent=error.message;}});
+document.getElementById("export-part").addEventListener("click",()=>{try{const c=selectedCADComponent();if(!c)throw new Error("Select a part.");downloadCAD(serializePart(c),(c.name||c.type)+".rocketpart.json","application/json");}catch(error){document.getElementById("project-status").textContent=error.message;}});
+const partFile=document.getElementById("part-file");
+document.getElementById("import-part").addEventListener("click",()=>partFile.click());
+partFile.addEventListener("change",async()=>{try{const file=partFile.files[0];if(!file)return;if(file.size>PROJECT_LIMIT)throw new Error("Part file exceeds size limit.");const c=parsePart(await file.text());await verifyProjectAssets({components:[c]});serializeProject({...rocket,components:[...rocket.components,c]});rocket.components.push(c);builder.selectedId=c.id;refresh();}catch(error){document.getElementById("project-status").textContent=error.message;}finally{partFile.value="";}});
+document.getElementById("explode-view").addEventListener("change",event=>{if(viewer){viewer.exploded=event.target.checked;refresh();}});
+document.getElementById("part-projection").addEventListener("change",event=>studioViewer?.setProjection(event.target.value));
+
+document.getElementById("show-markers").addEventListener("change",refresh);
+
+document.getElementById("delete-part").addEventListener("click",()=>{if(builder.selectedId!==null){deleteComponent(rocket,builder.selectedId);builder.selectedId=null;clearFlight();refresh();}});

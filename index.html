@@ -24,8 +24,10 @@
     <h1>🚀 RocketLab</h1>
     <span class="tagline">Build it. Check stability. Fly it.</span>
     <div class="tabs">
-      <button class="tab active" data-tab="build">Builder</button>
-      <button class="tab" data-tab="fly">Flight</button>
+      <button class="tab active" data-tab="build">Assembly</button>
+      <button class="tab" data-tab="part">Part Studio</button>
+      <button class="tab" data-tab="fly">Simulation</button>
+      <button class="tab" data-tab="analysis">Analysis</button>
     </div>
   </header>
 
@@ -50,8 +52,10 @@
         <button data-add="finCan" title="Replaces separate tail fins; adds an inline sleeve section">+ Fin can</button>
       </div>
       <ul id="component-list" class="component-list"></ul>
+      <div id="assembly-actions-host"><div id="part-actions" class="add-buttons"><button id="open-part">Open Part Studio</button><button id="duplicate-part">Duplicate to library</button><button id="delete-part">Delete selected part</button><button id="export-part">Export part JSON</button><button id="import-part">Import part JSON</button></div></div>
+      <input id="part-file" type="file" accept=".json,application/json" hidden>
 
-      <p id="project-status" class="muted" role="status" aria-live="polite"></p>
+      <div id="assembly-status-host"><p id="project-status" class="muted" role="status" aria-live="polite"></p></div>
       <h2>Motor</h2>
       <select id="motor-select"></select>
 
@@ -65,7 +69,9 @@
     </section>
 
     <section class="panel center-panel">
-      <h2>Rocket</h2>
+      <h2>Rocket assembly</h2>
+      <label><input id="explode-view" type="checkbox"> Exploded 3D display (engineering stays assembled)</label>
+      <label><input id="show-markers" type="checkbox" checked> Show CG / CP markers</label><p id="marker-readout" class="muted"></p>
       <div class="view-toggle" role="group" aria-label="View mode">
         <button id="view2d-btn" class="view-toggle-btn active" data-view="2d">2D</button>
         <button id="view3d-btn" class="view-toggle-btn" data-view="3d">3D</button>
@@ -78,7 +84,7 @@
         <div id="viewer3d" class="viewer3d"></div>
         <p class="hint">Drag to rotate &nbsp; scroll to zoom &nbsp; right-drag to pan</p>
       </div>
-      <details id="cad-panel" class="cad-panel">
+      <div id="assembly-cad-host"><details id="cad-panel" class="cad-panel">
         <summary>Solid CAD · STEP / STL</summary>
         <p class="muted">Select a body tube, fin can or centering ring, then generate a solid. CAD loads on demand and needs internet. Dimensions are exported in millimeters.</p>
         <label for="cad-tolerance">STL / preview chord tolerance (mm)</label>
@@ -106,14 +112,14 @@
         <pre id="cad-properties"></pre>
         <div id="cad-viewer" class="viewer3d"></div>
         <p class="muted">STEP inspection does not change the rocket until you choose an assembly action and interpretation. An external cylindrical proxy does not represent arbitrary fins or nose aerodynamics. Flat fins have no root fillets; this is not a structural safety assessment.</p>
-      </details>
+      </details></div>
     </section>
 
     <section class="panel right-panel">
       <h2>Selected Component</h2>
-      <div id="editor" class="editor">
+      <div id="editor-home"><div id="editor" class="editor">
         <p class="muted">Select a component to edit its dimensions.</p>
-      </div>
+      </div></div>
 
       <h2>Stability</h2>
       <div id="stability" class="stability"></div>
@@ -121,9 +127,19 @@
       <button id="launch-btn" class="launch-btn">🔥 Launch →</button>
 
       <h2>Analysis &amp; Insights</h2>
-      <div id="analysis" class="analysis"></div>
+      <div id="analysis-home"><div id="analysis" class="analysis"></div></div>
     </section>
   </main>
+
+  <main id="view-part" class="view">
+    <section class="panel left-panel"><h2>Project parts</h2><div id="part-list" class="part-list"></div><div id="studio-actions-host"></div><div id="part-status-host"></div><button id="part-done">Done · return to Assembly</button><p class="muted">Edits apply live. Library-only parts do not contribute engineering mass or aerodynamics.</p></section>
+    <section class="panel part-center"><h2 id="part-title">Select a part</h2>
+      <label for="part-projection">View projection</label><select id="part-projection"><option value="perspective">Perspective</option><option value="orthographic">Orthographic</option></select>
+      <div id="part-viewer" class="viewer3d studio-viewer"></div><pre id="part-properties"></pre><div id="part-cad-host"></div>
+    </section>
+    <section class="panel right-panel"><h2>Shared part parameters</h2><div id="part-editor-host"></div></section>
+  </main>
+  <main id="view-analysis" class="view"><section class="panel analysis-panel"><h2>Assembly engineering</h2><div id="analysis-workspace"></div></section></main>
 
   <!-- ===================== FLIGHT VIEW ===================== -->
   <main id="view-fly" class="view">

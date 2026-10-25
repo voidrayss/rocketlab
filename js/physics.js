@@ -17,7 +17,7 @@ import { thrustAt, motorMassAt } from "./motors.js";
 // function body), never at module top level. Do not call these while this
 // module is initializing or the cycle will read an undefined binding.
 import { massProperties, centerOfPressure } from "./aero.js";
-import { maxBodyDiameter, totalLength } from "./rocket.js";
+import { maxBodyDiameter, bodyLength, totalLength } from "./rocket.js";
 
 const G = 9.80665;          // gravity (m/s^2)
 
@@ -234,7 +234,7 @@ function computeStabilityVsTime(rocket, motor, motorX) {
   // is where builder.js / main.js / analysis.js actually place it. A bare
   // simulateFlight call that passes `rocket` but omits `motorX` would otherwise
   // put the motor at the nose tip (x=0) and skew the stability curve.
-  const mx = motorX ?? Math.max(0, totalLength(rocket) - 0.05);
+  const mx = motorX ?? Math.max(0, bodyLength(rocket) - 0.05);
   const nSamples = 6;
   const out = [];
   for (let i = 0; i < nSamples; i++) {

@@ -1,3 +1,5 @@
+import { resolveAssembly } from "./assembly.js";
+import { localPart } from "./components.js";
 import { importedPoint } from "./imported.js";
 // ===========================================================================
 // viewer3d.js - the interactive 3D view of the rocket.
@@ -101,6 +103,15 @@ export class Viewer3D {
 
     window.addEventListener("resize", () => this.resize());
 
+    this.renderer.domElement.addEventListener("pointerdown",event=>{this.pointerStart=[event.clientX,event.clientY];});
+    this.renderer.domElement.addEventListener("pointerup",event=>{
+      if(!this.onSelect||!this.pointerStart||Math.hypot(event.clientX-this.pointerStart[0],event.clientY-this.pointerStart[1])>5)return;
+      const rect=this.renderer.domElement.getBoundingClientRect();
+      const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1),this.camera);
+      const hit=ray.intersectObjects(this.rocketGroup.children.filter(c=>!c.userData.engineeringMarker),true)[0];let object=hit?.object;
+      while(object&&object.userData.componentId===undefined)object=object.parent;
+      if(object?.userData.componentId!==undefined)this.onSelect(object.userData.componentId);
+    });
     this.initialized = true;
   }
 
@@ -113,6 +124,7 @@ export class Viewer3D {
   }
 
   _rebuild(rocket) {
+    rocket=resolveAssembly(rocket);
     // Clear the previous rocket meshes.
     this._clearGroup(this.rocketGroup);
     if (!rocket || !rocket.components || rocket.components.length === 0) return;
@@ -121,7 +133,9 @@ export class Viewer3D {
     const maxD = maxBodyDiameter(rocket);
     const L = totalLength(rocket) || 0.5;
 
+    let visibleIndex=0;
     for (const c of rocket.components) {
+      if(c.visible===false)continue;
       const x0 = pos.get(c.id) ?? 0;
       let mesh = null;
 
@@ -158,16 +172,25 @@ export class Viewer3D {
         mesh = this._buildFins(c, maxD, x0);
       }
 
-      if (mesh) this.rocketGroup.add(mesh);
+      if (mesh) {
+        mesh.userData.componentId=c.id;
+        if(this.exploded)mesh.position.y-=visibleIndex++*.06;
+        if(c.id===this.selectedId)mesh.traverse(obj=>{if(obj.material?.emissive)obj.material.emissive.setHex(0x15354a);});
+        this.rocketGroup.add(mesh);
+      }
     }
 
     // Center the rocket on the grid: our model runs along +Y from the nose
     // tip (y = 0) downward. Shift so the body midpoint sits at the origin and
     // the nose points up.
-    this.rocketGroup.position.set(0, L / 2, 0);
+    this.rocketGroup.position.set(0, L / 2+(this.exploded?Math.max(0,visibleIndex-1)*.03:0), 0);
+    this._drawMarkers(maxD);
 
     // Frame the camera to the rocket size the first time we draw something.
-    this._frameCamera(L, maxD);
+    const span=L+(this.exploded?visibleIndex*.06:0);
+    if(!this.framed || Math.abs(span-(this.frameSpan||0))>Math.max(.1,(this.frameSpan||0)*.3)){
+      this._frameCamera(span,maxD);this.framed=true;this.frameSpan=span;
+    }
   }
 
   // --- Component mesh builders -----------------------------------------
@@ -183,7 +206,7 @@ export class Viewer3D {
     const points = profile.map((p) => new THREE.Vector2(Math.max(p.r, 1e-5), -p.x));
     const geo = new THREE.LatheGeometry(points, 48);
     const mat = this._material(COLORS.nose);
-    return new THREE.Mesh(geo, mat);
+    const mesh=new THREE.Mesh(geo,mat);mesh.position.y=-this._axialStart(c);return mesh;
   }
 
   _buildBody(c) {
@@ -277,6 +300,36 @@ export class Viewer3D {
     });
   }
 
+  _drawMarkers(diameter){
+    const values=this.engineeringMarkers;
+    this.renderer.domElement.dataset.markersVisible=String(!!(values&&this.showMarkers&&!this.exploded));
+    if(!values||!this.showMarkers||this.exploded)return;
+    for(const [key,text,color] of [["cg","CG",0x4da3ff],["cp","CP",0xff5c5c]]){
+      const group=new THREE.Group();group.userData.engineeringMarker=true;group.position.y=-values[key];
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(diameter*.72,diameter*.025,8,64),new THREE.MeshBasicMaterial({color,depthTest:false,transparent:true,opacity:.85}));
+      ring.rotation.x=Math.PI/2;ring.renderOrder=20;group.add(ring);
+      const canvas=document.createElement("canvas");canvas.width=384;canvas.height=64;const ctx=canvas.getContext("2d");
+      ctx.fillStyle="#"+color.toString(16).padStart(6,"0");ctx.font="bold 28px system-ui";ctx.fillText(`${text} ${(values[key]*1000).toFixed(1)} mm`,8,42);
+      const label=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),depthTest:false}));
+      label.scale.set(diameter*3,diameter*.5,1);label.position.x=diameter*2;label.renderOrder=21;group.add(label);
+      this.rocketGroup.add(group);this.renderer.domElement.dataset[key+"M"]=String(values[key]);
+    }
+  }
+
+  renderPart(component){
+    if(this.partId!==component.id){this.framed=false;this.partId=component.id;}
+    const c=localPart(component);c.visible=true;
+    this.selectedId=null;this.exploded=false;this.engineeringMarkers=null;
+    this.render({components:[c]});
+  }
+  setProjection(mode){
+    if(!this.initialized)return;
+    const aspect=this.container.clientWidth/Math.max(1,this.container.clientHeight),span=this.frameSpan||.5;
+    const old=this.camera;
+    this.camera=mode==="orthographic"?new THREE.OrthographicCamera(-span*aspect,span*aspect,span,-span,.01,100):new THREE.PerspectiveCamera(45,aspect,.01,100);
+    this.camera.position.copy(old.position);this.controls.object=this.camera;this.controls.update();this.resize();
+  }
+
   // Display tessellation produced from a genuine B-rep, in an isolated CAD view.
   renderCAD(data, properties) {
     this.init();
@@ -332,7 +385,8 @@ export class Viewer3D {
     if (!this.initialized) return;
     const width = this.container.clientWidth || 400;
     const height = this.container.clientHeight || 640;
-    this.camera.aspect = width / height;
+    if(this.camera.isOrthographicCamera){const span=this.frameSpan||.5;this.camera.left=-span*width/height;this.camera.right=span*width/height;this.camera.top=span;this.camera.bottom=-span;}
+    else this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
   }
@@ -352,7 +406,7 @@ export class Viewer3D {
       const child = group.children[i];
       this._clearGroup(child); // recurse into nested groups (fins)
       if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+      if (child.material) {child.material.map?.dispose();child.material.dispose();}
       group.remove(child);
     }
   }

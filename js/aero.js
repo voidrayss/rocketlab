@@ -1,3 +1,4 @@
+import { resolveAssembly } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { importedPoint } from "./imported.js";
 import { finCanProperties, finAxialCentroid } from "./fincan.js";
@@ -43,6 +44,7 @@ export const SHEAR_MODULUS = {
 // We approximate each component as a thin shell (hollow) where appropriate,
 // which is realistic for hobby rockets and keeps the math transparent.
 export function massProperties(rocket, extraMass = 0, extraMassX = null) {
+  rocket=resolveAssembly(rocket);
   const pos = layoutPositions(rocket);
   let totalMass = 0;
   let moment = 0; // sum of mass * centroidX
@@ -135,6 +137,7 @@ function totalLengthGuess(rocket) {
 // at its own center of pressure. The rocket CP is the CNalpha-weighted average.
 // ---------------------------------------------------------------------------
 export function centerOfPressure(rocket) {
+  rocket=resolveAssembly(rocket);
   const pos = layoutPositions(rocket);
   const dRef = maxBodyDiameter(rocket);
   const Aref = PI * (dRef / 2) ** 2;
@@ -211,6 +214,7 @@ export function stabilityMargin(rocket, motorMass, motorX) {
 // Not full fidelity — intentionally transparent and defendable.
 // ---------------------------------------------------------------------------
 export function dragCoefficient(rocket) {
+  rocket=resolveAssembly(rocket);
   let cd = 0.3; // baseline body/base drag
   const nose = rocket.components.find(c => c.type === COMPONENT_TYPES.NOSE);
   if (nose) {
@@ -258,6 +262,7 @@ export function referenceArea(rocket) {
 // low (stubby) is draggy and can be unstable, too high is fragile and flexible.
 // ---------------------------------------------------------------------------
 export function finenessRatio(rocket) {
+  rocket=resolveAssembly(rocket);
   const L = totalLength(rocket);
   const d = maxBodyDiameter(rocket);
   return d > 0 ? L / d : 0;
@@ -270,6 +275,7 @@ export function finenessRatio(rocket) {
 // conical transitions (frustum lateral area).
 // ---------------------------------------------------------------------------
 export function wettedArea(rocket) {
+  rocket=resolveAssembly(rocket);
   let area = 0;
   for (const c of rocket.components) {
     if (c.type === COMPONENT_TYPES.NOSE) {
@@ -290,6 +296,15 @@ export function wettedArea(rocket) {
       area += PI * (r1 + r2) * slant; // frustum lateral area
     }
   }
+  const positions=layoutPositions(rocket);
+  for(const sleeve of rocket.components.filter(c=>c.type==="finCan"&&c.attachment)){
+    const parent=rocket.components.find(c=>c.id===sleeve.attachment.parentId);if(!parent)continue;
+    const sx=positions.get(sleeve.id),px=positions.get(parent.id);
+    const overlap=Math.max(0,Math.min(sx+sleeve.length,px+parent.length)-Math.max(sx,px));
+    if(sleeve.attachment.fit==="over")area-=PI*parent.diameter*overlap;
+    if(sleeve.attachment.fit==="inside")area-=PI*sleeve.diameter*overlap;
+  }
+
   return area;
 }
 
@@ -322,6 +337,7 @@ export function skinFrictionDrag(rocket, { velocity = 50, altitude = 0 } = {}) {
 //   meanAeroChord = (2/3) * cr * (1 + lambda + lambda^2) / (1 + lambda)
 // ---------------------------------------------------------------------------
 export function finGeometry(rocket) {
+  rocket=resolveAssembly(rocket);
   const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS || c.type === COMPONENT_TYPES.FINCAN);
   if (!fin) return { aspectRatio: 0, taperRatio: 0, meanAeroChord: 0, finArea: 0 };
   const cr = fin.rootChord, ct = fin.tipChord, s = fin.span;
@@ -349,6 +365,7 @@ export function finGeometry(rocket) {
 // thickness / root chord.
 // ---------------------------------------------------------------------------
 export function flutterVelocity(rocket, { altitude = 0, shearModulus = null } = {}) {
+  rocket=resolveAssembly(rocket);
   const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS || c.type === COMPONENT_TYPES.FINCAN);
   if (!fin) return { velocity: Infinity, G: 0 };
   const { aspectRatio: AR, taperRatio: lambda } = finGeometry(rocket);

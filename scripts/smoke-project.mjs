@@ -5,10 +5,10 @@ const original = defaultRocket();
 original.components.push(createTransition(), createNose({ shape: 'vonKarman' }));
 const text = serializeProject(original);
 const loaded = parseProject(text);
-const withoutIds = rocket => ({ ...rocket, components: rocket.components.map(({ id, ...c }) => c) });
+const withoutIds = rocket => ({ ...rocket, components: rocket.components.map(({ id, ...c }) => ({...c,...(c.attachment?{attachment:{...c.attachment,parentId:rocket.components.find(p=>p.id===c.attachment.parentId)?.uid}}:{})})) });
 assert.deepEqual(withoutIds(loaded), withoutIds(original));
 assert.equal(new Set([...original.components, ...loaded.components, createBody(), createFins()].map(c => c.id)).size, 12);
-assert.equal(serializeProject(loaded).includes('"version": 1'), true);
+assert.equal(serializeProject(loaded).includes('"version": 3'), true);
 for (const mutate of [
   d => d.version = 99,
   d => d.rocket.motorId = 'missing',

@@ -431,3 +431,17 @@ CP and fin centroid agree closely for the two tested geometries; structure
 mass/CG and drag differences remain documented. Full flight equivalence is not
 yet verified. See [OpenRocket validation](docs/OPENROCKET_VALIDATION.md).
 Publication is prepared but inactive: [deployment instructions](docs/DEPLOYMENT.md).
+
+
+### Part Studio and constrained Assembly
+
+Open a selected component in **Part Studio** for isolated 3D and shared parameter
+editing. Assembly uses the same part; changes update engineering and invalidate
+old flight/CAD results. New noses and fin cans match the current body through
+persistent relationships, including after deletion/recreation. Automatic,
+manual, and locked diameter sizing and manufacturing clearances are explicit.
+
+Duplicate/import reusable parts into the project library, then choose whether
+they are assembled. Native v3 stores stable identities and relationships; older
+projects remain loadable. Visibility and exploded display do not change physics.
+CG/CP 3D rings and labels are toggleable. See [workspace workflows and limits](docs/WORKSPACES.md).

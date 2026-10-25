@@ -44,51 +44,52 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   manual/main-only GitHub Pages template, exact activation/rollback instructions,
   and local /rocketlab/ project-path browser test. Nothing enabled or deployed.
 
-- OpenRocket reference milestone (commit containing this entry): executed installed
+- `9620f7a`: OpenRocket reference milestone: executed installed
   OpenRocket 24.12 headlessly for matching conical/ogive static geometries;
   recorded JAR hash, conditions, actual CP/mass/CG/Cd and fin centroid; reproducible
   optional driver and frozen comparison tests. No OpenRocket implementation
   copied or required by the website. See docs/OPENROCKET_VALIDATION.md.
 
+- Shared-workspace/attachment milestone (commit containing this entry): pure
+  dependency solver and atomic edits, body-aware nose/fin-can recreation,
+  automatic/manual/locked diameter sizing, over/inside/butt fit and offsets,
+  isolated live Part Studio, project-part library/portable part files, v3 stable
+  identities/relationship remapping, visibility/exploded display, 3D selection,
+  and toggleable CG/CP markers. See docs/WORKSPACES.md.
+
 ## Current development phase
 
-Priority 4: advanced parametric manufacturing components and continued numerical
-validation. Imported-CAD assembly and guarded metadata restoration are operational
-with the explicit limitations below. Pages preparation is complete but inactive.
-Static OpenRocket differences now provide evidence for further mass/drag review.
-Do not restart or replace the working CAD pipeline.
+Implement the two new user directives for Builder/CAD/manufacturing and Part
+Studio/Assembly. Shared state, constraints, recreation, workspaces and markers
+are operational. Next: nose shoulder and valid aft-overhang fin geometry, then
+fin parameterization/profiles/search, authoritative motors and recovery settings.
+Keep the existing CAD and numerical corrections intact.
 
-## Remaining roadmap (priority order)
+## Remaining roadmap (current user priority)
 
-1. Further numerical reliability: shape-aware nose mass/CP, exact shell masses,
-   atmosphere range, event interpolation, and OpenRocket comparisons. Initial
-   confirmed corrections are complete; see docs/NUMERICS.md.
-2. Imported CAD refinements: broader aerodynamic proxies, fit/overlap inspection,
-   full source-geometry revalidation on project reload when requested. Initial
-   internal/body roles, position/rotation/density, mass/CG and persistence are done.
-3. Metadata refinements: support more part families as their CAD generators arrive.
-   Current v2 exact-source + properties + regeneration gate is operational for
-   bodies/fin cans/rings, with custom fallback for changed source or legacy metadata.
-4. Advanced CAD: root fillets, fin profiles, through-wall fins, mounts, rings,
-   couplers, bulkheads, electronics and recovery compartments. Centering rings
-   are complete; fit/structural checks are still manual.
-5. Interoperability: test actual external CAD applications where available;
-   do not equate the separately packaged OCCT reader with a separate CAD kernel.
-6. OpenRocket: initial actual static cases/license review complete. Next compare
-   an equivalent full motor/recovery flight (apogee/speed/acceleration/duration)
-   and loaded stability with matched motor/environment. Static CP agrees within
-   0.1 mm; mass/CG/Cd differences are documented, not corrected by arbitrary fitting.
-7. Deployment activation awaits explicit approval. Template/instructions are
-   prepared in docs/DEPLOYMENT.md and docs/deployment/github-pages.yml.example;
-   no workflow exists under .github/workflows. Do not enable, publish, merge main
-   or change DNS without authorization.
-
+1. Parametric nose shoulder with body-bore matching, genuine joined solid,
+   correct mass/CG and STEP/STL verification.
+2. Fin axial offsets/overhang beyond sleeve/body, while maintaining a connected
+   solid; consistent overall bounds, CP, CG, 2D/3D and exports.
+3. Fin angle controls, planform/cross-section options, root fillets, deterministic
+   objective/constraint-driven search. Do not claim high-fidelity drag/strength.
+4. Real sourced motor catalog expansion, file import, duplicate prevention,
+   manufacturer/class filters and search; no invented manufacturer data.
+5. Recovery-system component/editor with mass/placement/cord data, deployment
+   configuration, chute drag and descent/energy outputs.
+6. Workspace refinements: richer CAD generators, per-dimension locks, automatic
+   fit/interference checks, assemblies beyond supported body relationships.
+7. Remaining numerical fidelity and OpenRocket flight comparisons; cross-vendor
+   CAD verification and advanced manufacturing parts. Existing static references
+   show mass/drag differences; do not erase them with arbitrary fitting.
+8. Publication awaits explicit approval. Pages template is inactive; do not
+   merge main, enable hosting, change DNS or deploy without authorization.
 
 ## Test results
 
 Verified 2026-10-25 (America/New_York):
 
-- `node scripts/check.mjs`: all twelve smoke tests and source syntax PASS.
+- `node scripts/check.mjs`: all thirteen smoke tests and source syntax PASS, including assembly constraints.
   Includes numerical analytic references, all 12 shipped motor files, imported
   geometry schema/mass/CG/transforms/persistence, rings, and static OpenRocket
   CP/fin-centroid checks.
@@ -100,6 +101,9 @@ Verified 2026-10-25 (America/New_York):
   STEP/STL/metadata downloads, source-fingerprint parameter restoration,
   replacement without extra components, imported density/rotation and v2
   project round trip, ring solid generation/persistence, and offline fallback.
+  New workspace checks include Part Studio live edits, orthographic view, library
+  and part files, attachment recreation, direct 3D selection, markers and v3
+  identity/relationship reload; offline part editing also PASS.
   OS file dialog is intercepted through DevTools, not visually automated.
 - Inactive Pages template parses via Ruby/Psych; manual-only trigger/main guard
   confirmed. Actual deployment is untested and not enabled.
@@ -135,14 +139,18 @@ Verified 2026-10-25 (America/New_York):
 ## Architecture decisions
 
 - Preserve lazy cross-calls in intentional aero.js/physics.js circular imports.
-- Fin can is an inline sleeve section, not a slip-over tube; adding it replaces
-  separate tail fins. Its exact union volume/centroid include curved roots.
+- New fin cans attach over the aft body with explicit clearance; inside and
+  butt connections are optional. Legacy attachment-free fin cans stay inline.
+  Its exact union volume/centroid includes curved roots; hidden covered surfaces
+  are excluded from wetted area. Inside-body configurations need manual slots.
 - Direct `replicad-opencascadejs@0.20.2` bindings from jsDelivr, no high-level
   replicad dependency or npm install; Three.js remains at 0.160.0. See notices.
 - CAD STEP exported solids are checked by BRepCheck and read back before download.
   Read-back geometry, source parameters, and aerodynamic interpretations are
   distinct. Metadata v1 remains readable for comparison; v2 is exported with source hash.
-- Native format: rocketlab v1 remains supported; v2 embeds imported CAD assets
+- Native v3 retains stable uid identities, assembly relationships, names,
+  visibility and library membership. Numeric runtime IDs/attachments are remapped
+  on load. v1/v2 remain supported. v2 introduced imported CAD assets
   and measured properties, capped at 50 MB/project and 20 MB/source STEP.
   All component IDs are fresh on load. Metadata v2 records exact STEP SHA-256;
   parameter restoration also regenerates and compares solid properties.
@@ -151,7 +159,7 @@ Verified 2026-10-25 (America/New_York):
 
 - origin: https://github.com/voidrayss/rocketlab.git
 - Active/tracking branch: development/rocketlab-2; latest prior implementation b694799, deployment preparation 0a94077;
-  this milestone records external reference validation.
+  9620f7a records external reference validation; this milestone adds workspaces.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.
@@ -162,12 +170,10 @@ Verified 2026-10-25 (America/New_York):
 
 ## Next actions
 
-1. Read AGENTS.md, this file, git status/history; preserve HANDOFF.md.
-2. Implement the next advanced manufacturing component or root-fillets with
-   kernel/analytic consistency tests; preserve the imported-CAD assembly pipeline.
-   Review actual OpenRocket mass/CG differences before refining existing shell
-   models. A matched flight comparison is still needed; do not claim equivalence.
-3. Run smoke/syntax checks and relevant browser/CAD checks; update this document,
-   commit and push the milestone, then continue with the next unfinished task.
-4. Obtain temporary kernel/reader paths using docs/CAD.md if needed; never add
-   downloaded binaries or credentials to the workspace history.
+1. Read AGENTS.md, this file, status/history; preserve HANDOFF.md.
+2. Add the nose shoulder and valid fin-can axial overhangs with matching CAD,
+   analytic volume/centroid, assembly and browser regressions.
+3. Continue the ordered roadmap above, updating this status and committing/
+   pushing each tested milestone to development/rocketlab-2.
+4. CAD binaries/readers are temporary development utilities, not workspace or
+   website build dependencies; see docs/CAD.md for reproduction paths.

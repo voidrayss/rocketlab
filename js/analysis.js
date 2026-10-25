@@ -1,3 +1,4 @@
+import { resolveAssembly } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { finCanProperties } from "./fincan.js";
 // ===========================================================================
@@ -10,7 +11,7 @@ import { finCanProperties } from "./fincan.js";
 // imports cleanly in Node for the smoke tests.
 // ===========================================================================
 
-import { COMPONENT_TYPES, MATERIALS, layoutPositions, totalLength,
+import { COMPONENT_TYPES, MATERIALS, layoutPositions, bodyLength, totalLength,
          maxBodyDiameter, canonicalNoseShape } from "./rocket.js";
 import { massProperties, centerOfPressure, stabilityMargin, dragCoefficient,
          referenceArea, finenessRatio, wettedArea, skinFrictionDrag,
@@ -76,6 +77,7 @@ const PART_NAMES = {
 
 // Per-part mass breakdown: array of { name, grams, percent }.
 export function massBreakdown(rocket) {
+  rocket=resolveAssembly(rocket);
   const parts = rocket.components.map(c => ({
     name: PART_NAMES[c.type] ?? c.type,
     kg: componentMass(c),
@@ -102,8 +104,9 @@ function metric(label, value, unit, explanation, citation) {
 //   }
 // ---------------------------------------------------------------------------
 export function buildReport(rocket, motor) {
+  rocket=resolveAssembly(rocket);
   const L = totalLength(rocket) || 0.5;
-  const motorX = L - 0.05; // motor sits ~5 cm ahead of the tail
+  const motorX = Math.max(0,bodyLength(rocket)-0.05); // motor sits ~5 cm ahead of the tail
 
   // --- Geometry / mass ---
   const { mass: structureMass } = massProperties(rocket, 0);
@@ -141,7 +144,7 @@ export function buildReport(rocket, motor) {
   else if (calibers <= 2.5) stabWord = "STABLE: one to two-and-a-half calibers is the recommended range.";
   else stabWord = "OVER-STABLE: it will weathercock strongly into the wind. Trim fin size or move mass rearward.";
 
-  const warnings = [];
+  const warnings = [...(rocket.assemblyWarnings||[])];
   if (rocket.components.some(c => c.type === "imported")) warnings.push("Imported CAD mass uses saved kernel volume and selected density. Internal parts add mass only; external parts use a user-specified cylindrical aerodynamic proxy with no fin or nose CP. Confirm fit, placement, and aerodynamic assumptions. Project reload does not rerun the CAD kernel.");
   if (!s.launched) warnings.push("The rocket never lifted off the launch pad.");
   else if (!s.railCleared) warnings.push("The rocket did not clear the launch rail.");
