@@ -13,7 +13,7 @@
 //
 // It mirrors exactly how the browser UI wires these modules together:
 //   - stability uses the full motor mass placed near the tail (see builder.js)
-//   - the flight uses dry mass = structure + spent motor casing (see main.js)
+//   - the flight uses dry mass = structure only; simulator adds the entire motor (see main.js)
 // ===========================================================================
 
 import { defaultRocket, totalLength } from "../js/rocket.js";
@@ -35,9 +35,9 @@ const L = totalLength(rocket) || 0.5;
 const motorX = L - 0.05;
 const { cg, cp, dRef, calibers } = stabilityMargin(rocket, motor.totalMass, motorX);
 
-// --- Flight inputs: dry mass = structure + spent casing (matches main.js). ---
+// --- Flight inputs: dry mass = structure only; simulator adds the entire motor (matches main.js). ---
 const { mass: structureMass } = massProperties(rocket, 0);
-const dryMass = structureMass + (motor.totalMass - motor.propellantMass);
+const dryMass = structureMass; // Entire motor mass is added by the simulator.
 const Cd = dragCoefficient(rocket);
 const area = referenceArea(rocket);
 

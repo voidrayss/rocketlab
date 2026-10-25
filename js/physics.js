@@ -69,7 +69,7 @@ function derivative(state, t, ctx) {
   let force = 0;
 
   // Thrust (always up along the flight path during ascent in this 1D model).
-  const thrust = thrustAt(motor, t);
+  const thrust = ctx.thrustOverride ?? thrustAt(motor, t);
   force += thrust;
 
   // Gravity.
@@ -87,13 +87,18 @@ function derivative(state, t, ctx) {
   const dragMag = 0.5 * rho * speed * speed * cd * a;
   force -= Math.sign(v) * dragMag;
 
-  const accel = force / mass;
+  // The launch pad supports the rocket until thrust overcomes weight.
+  const supported = ctx.onPad && state.y <= 0 && state.v <= 0 && force <= 0;
+  const accel = supported ? 0 : force / mass;
   const vSound = speedOfSound(state.y);
-  return { dy: v, dv: accel, mass, thrust, rho, mach: speed / vSound, accel };
+  return { dy: supported ? 0 : v, dv: accel, mass, thrust, rho, mach: speed / vSound, accel };
 }
 
 // One RK4 step. Returns the new state plus some telemetry from the midpoint.
 function rk4Step(state, t, dt, ctx) {
+  // Boxcar thrust is constant on this interval. Steps are split at burnout,
+  // so RK4 must use the pre-burnout value at the interval's right endpoint.
+  if (!ctx.motor.curve) ctx = {...ctx, thrustOverride: t < ctx.motor.burnTime ? ctx.motor.avgThrust : 0};
   const k1 = derivative(state, t, ctx);
   const s2 = { y: state.y + k1.dy * dt / 2, v: state.v + k1.dv * dt / 2 };
   const k2 = derivative(s2, t + dt / 2, ctx);
@@ -115,8 +120,14 @@ export function simulateFlight({ motor, dryMass, Cd, area,
                                  useParachute = true, parachuteCd = 1.5,
                                  parachuteArea = 0.5, dt = 0.01, tMax = 120,
                                  railLength = 1.0, rocket = null, motorX = null }) {
+  // dryMass means all non-motor mass; loaded and spent casing are both in motorMassAt.
+  for (const [name, value] of Object.entries({dryMass,Cd,area,dt,tMax,railLength,parachuteCd,parachuteArea})) {
+    if (!Number.isFinite(value) || value < 0) throw new Error(`Invalid simulation ${name}.`);
+  }
+  if (dt <= 0 || tMax <= 0 || tMax / dt > 2000000 || area <= 0 || railLength <= 0 || (useParachute && (parachuteArea <= 0 || parachuteCd <= 0))) throw new Error("Invalid simulation step, duration or geometry.");
+  if (!motor || ![motor.totalMass,motor.propellantMass,motor.burnTime,motor.avgThrust].every(Number.isFinite) || motor.totalMass <= 0 || motor.propellantMass < 0 || motor.propellantMass > motor.totalMass || motor.burnTime <= 0 || motor.avgThrust < 0) throw new Error("Invalid simulation motor.");
   const ctx = {
-    motor, dryMass, Cd, area,
+    motor, dryMass, Cd, area, onPad: true,
     parachute: { deployed: false, Cd: parachuteCd, area: parachuteArea },
   };
 
@@ -127,11 +138,12 @@ export function simulateFlight({ motor, dryMass, Cd, area,
   let apogee = 0, apogeeTime = 0, maxV = 0, maxMach = 0;
   let maxQ = 0, maxQTime = 0;        // peak dynamic pressure (Pa)
   let maxAccel = 0;                  // peak |acceleration| during ascent (m/s^2)
-  let railExitVelocity = 0;          // velocity when the rocket clears the rail
+  let railExitVelocity = null;          // velocity when the rocket clears the rail
   let railCleared = false;
   let launched = false;
 
   while (t <= tMax) {
+    if (state.y > 0) { launched = true; ctx.onPad = false; }
     const { mass, thrust, mach, rho, accel } = derivative(state, t, ctx);
     const speed = Math.abs(state.v);
 
@@ -162,18 +174,20 @@ export function simulateFlight({ motor, dryMass, Cd, area,
     if (useParachute && !ctx.parachute.deployed && launched && state.v < 0) {
       ctx.parachute.deployed = true;
     }
-    if (state.v > 0.1 || thrust > 0) launched = true;
+    if (!launched && t >= motor.burnTime && state.y <= 0 && state.v <= 0) break;
 
     // Landed: we've flown and come back to the ground moving downward.
     if (launched && state.y <= 0 && state.v < 0) break;
 
-    const step = rk4Step(state, t, dt, ctx);
+    if (t >= tMax) break;
+    const stepDt = Math.min(dt, tMax - t, motor.burnTime > t ? motor.burnTime - t : dt);
+    const step = rk4Step(state, t, stepDt, ctx);
     state = step.state;
-    t += dt;
+    if (!launched && state.y < 0) state = { y: 0, v: 0 };
+    t += stepDt;
   }
 
-  // If the rocket never reached the rail length, use the peak upward velocity.
-  if (!railCleared) railExitVelocity = maxV;
+  // A rocket that never clears the rail has no rail-exit velocity.
 
   // Thrust-to-weight ratio at liftoff: average thrust / initial weight. We use
   // average (not peak) thrust so the ratio reflects the sustained lift over the
@@ -183,8 +197,8 @@ export function simulateFlight({ motor, dryMass, Cd, area,
   const thrustToWeight = motor.avgThrust / (liftoffMass * G);
 
   // Steady descent rate under the parachute: from the last descending samples
-  // (terminal velocity where drag balances weight). We take the median of the
-  // final descent speeds to smooth out numerical wiggle.
+  // (an approximate terminal speed). We take the mean of the
+  // latter half of descent speeds to smooth out numerical wiggle.
   const descentRate = computeDescentRate(samples);
 
   // Stability margin over the burn: the CG shifts forward as the (rear-mounted)
@@ -200,7 +214,8 @@ export function simulateFlight({ motor, dryMass, Cd, area,
       burnoutTime: motor.burnTime,
       thrustToWeight,
       railExitVelocity,
-      railLength,
+      railLength, launched, railCleared,
+      termination: !launched ? "no-liftoff" : (state.y <= 0 && state.v < 0 ? "landed" : "time-limit"),
       maxQ, maxQTime,
       maxAcceleration: maxAccel / G,   // reported in g's
       descentRate,

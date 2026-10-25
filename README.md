@@ -221,8 +221,8 @@ pauses whenever the 3D view is hidden.
 
 ## Validation
 
-The default rocket (50 cm, ~97 g) on a **C6** motor simulates to ~166 m apogee,
-Mach 0.18, 1.0 caliber stability — all in the realistic range for a small Estes
+The default rocket (50 cm, 108.05 g loaded) on a **C6** motor simulates to ~185.7 m apogee,
+Mach 0.20, ~0.99 caliber stability — all in the realistic range for a small Estes
 rocket, which is a good sign the physics is behaving.
 
 Two headless smoke tests back this up (run from the repo root with Node):
@@ -231,7 +231,7 @@ Two headless smoke tests back this up (run from the repo root with Node):
 node scripts/smoke.mjs           # baseline: CG/CP/stability/apogee finite
 node scripts/smoke-analysis.mjs  # depth metrics finite, explanations + citations
                                  # present, mass breakdown sums to 100%, apogee
-                                 # within 10% of the 166.3 m baseline
+                                 # within 2% of the corrected 185.7 m baseline
 node scripts/smoke-motors.mjs    # .eng parse: integrated impulse matches class,
                                  # curve monotonic, thrustAt interpolation 0
                                  # outside the burn, and a curve-based H/I motor
@@ -371,12 +371,10 @@ analysis panel, local motor catalog, and project controls initialized successful
 Interactive 3D rendering and native file-picker/download interactions still need
 manual browser verification.
 
-Known numerical issues remain under investigation: simulation callers include
-spent motor casing mass in dryMass while the integrator adds full motor mass;
-equal-diameter transitions are singular in the CP calculation; canonical nose
-shape names are not consistently used by the 2D drawing and CP calculation.
-The 166.2 m C6 baseline is preserved in these UI/project milestones, not an
-independent validation of simulation accuracy. Fin-can solids, CAD kernel
+The original 166.2 m C6 baseline was preserved by those UI/project milestones.
+Subsequent confirmed numerical corrections changed it to ~185.7 m; see
+[the correction record](docs/NUMERICS.md) for mass accounting, launch support,
+fin centroid, CP aliases, burnout quadrature, and regression evidence. Fin-can solids, CAD kernel
 integration, and STEP interoperability remain planned.
 
 ### Flight plots

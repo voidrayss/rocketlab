@@ -185,6 +185,7 @@ export class FlightView {
   renderSummary() {
     const st = this.result.stats;
     this.summaryEl.innerHTML = `
+      <div class="row"><span>Outcome</span><span>${st.termination || "unknown"}</span></div>` + `
       <div class="row"><span>Apogee</span><span>${st.apogee.toFixed(1)} m</span></div>
       <div class="row"><span>Time to apogee</span><span>${st.apogeeTime.toFixed(2)} s</span></div>
       <div class="row"><span>Max velocity</span><span>${st.maxV.toFixed(1)} m/s</span></div>

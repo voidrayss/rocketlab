@@ -5,7 +5,7 @@
 //   - every metric value is finite (numbers) or a non-empty string
 //   - every metric has a non-empty explanation and citation
 //   - the per-part mass breakdown percentages sum to ~100%
-//   - default C6 apogee is within ~10% of the FEAT-001 baseline (166.3 m)
+//   - default C6 apogee is within ~2% of the corrected mass/burnout baseline (185.7 m)
 //
 // Run from the repo root:  node scripts/smoke-analysis.mjs
 // ===========================================================================
@@ -17,7 +17,7 @@ import { finenessRatio, wettedArea, skinFrictionDrag, finGeometry,
 import { atmosphere, simulateFlight } from "../js/physics.js";
 import { buildReport } from "../js/analysis.js";
 
-const BASELINE_APOGEE = 166.3;
+const BASELINE_APOGEE = 185.7;
 let failures = 0;
 function fail(msg) { failures++; console.error("FAIL: " + msg); }
 
@@ -100,7 +100,7 @@ console.log(`Flight stats:   OK (T/W=${s.thrustToWeight.toFixed(1)}, railExit=${
 // --- Apogee regression gate ---
 const apogee = s.apogee;
 const errPct = Math.abs(apogee - BASELINE_APOGEE) / BASELINE_APOGEE * 100;
-if (errPct > 10) fail(`apogee ${apogee.toFixed(1)} m is more than 10% off baseline ${BASELINE_APOGEE} m`);
+if (errPct > 2) fail(`apogee ${apogee.toFixed(1)} m is more than 2% off baseline ${BASELINE_APOGEE} m`);
 console.log(`Apogee:         OK (${apogee.toFixed(1)} m, ${errPct.toFixed(1)}% from baseline ${BASELINE_APOGEE} m)`);
 
 if (failures > 0) {

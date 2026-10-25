@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { defaultRocket, createTransition, createNose, createFins, NOSE_SHAPES } from '../js/rocket.js';
+import { massProperties, centerOfPressure, dragCoefficient, referenceArea } from '../js/aero.js';
+import { getMotor, thrustAt, motorMassAt, ENG_FILES } from '../js/motors.js';
+import { simulateFlight } from '../js/physics.js';
+import { finAxialCentroid } from '../js/fincan.js';
+import { parseEng } from '../js/eng.js';
+import { buildReport } from '../js/analysis.js';
+const r=defaultRocket(),m=getMotor('C6'),structure=massProperties(r).mass;
+const args={motor:m,dryMass:structure,Cd:dragCoefficient(r),area:referenceArea(r),parachuteArea:.1};
+const flight=simulateFlight(args),report=buildReport(r,m);
+assert.equal(flight.samples[0].mass,structure+m.totalMass);
+assert.equal(flight.samples.at(-1).mass,structure+m.totalMass-m.propellantMass);
+assert(Math.abs(report.metrics.find(m=>m.label==='Liftoff mass').value-flight.samples[0].mass*1000)<1e-9);
+assert(Math.abs(report.stats.apogee-flight.stats.apogee)<1e-9);
+assert(flight.stats.apogee>184 && flight.stats.apogee<187);
+assert(flight.stats.launched && flight.stats.railCleared && flight.stats.termination==='landed');
+const box={totalMass:.1,propellantMass:0,burnTime:2,avgThrust:20};
+// Exact constant-mass, zero-drag powered ascent followed by ballistic coast.
+const a=20/1-9.80665,exact=a*2**2/2+(a*2)**2/(2*9.80665);
+const simple={motor:box,dryMass:.9,Cd:0,area:.01,useParachute:false};
+for(const dt of [.1,.03,.01]) {
+ const f=simulateFlight({...simple,dt});
+ assert(Math.abs(f.stats.apogee-exact)<.02,`analytic ballistic reference dt=${dt}`);
+}
+const slow=parseEng('S 10 20 P 0.01 0.1 Test\n0 0\n0.5 0\n1 30\n1.5 0');
+const ramp=simulateFlight({...simple,motor:slow});
+assert(ramp.stats.launched && ramp.stats.apogee>1 && ramp.samples[0].accel===0);
+assert(ramp.samples.some(s=>s.t>.1 && s.y===0 && s.v===0));
+const weak=simulateFlight({...simple,motor:{...box,avgThrust:.1}});
+assert.equal(weak.stats.termination,'no-liftoff');assert.equal(weak.stats.railExitVelocity,null);
+assert(weak.samples.every(s=>s.y===0 && s.v===0 && s.accel===0 && !s.parachute));
+for(const bad of [{dt:0},{dt:-1},{dt:NaN},{dryMass:-1},{area:0},{tMax:Infinity}]) assert.throws(()=>simulateFlight({...args,...bad}));
+const eq={components:[createNose(),createTransition({frontDiameter:.05,rearDiameter:.05})]};
+assert(Number.isFinite(centerOfPressure(eq).cp));
+const noseCp=shape=>centerOfPressure({components:[createNose({shape})]}).cp;
+assert.equal(noseCp('cone'),noseCp('conical'));
+for(const shape of NOSE_SHAPES) assert(Number.isFinite(noseCp(shape)));
+assert(Math.abs(finAxialCentroid(createFins({rootChord:.1,tipChord:.1,sweep:.02}))-.06)<1e-12);
+const start=parseEng('S 10 20 P 0.01 0.1 Test\n0 10\n1 10\n2 0');
+assert.equal(thrustAt(start,0),10);assert.equal(motorMassAt(start,0),.1);
+assert.equal(thrustAt(box,2),0);
+for(const rows of ['0 1\n0 0','-1 2\n1 0','0 -1\n1 0','bad 1\n1 0','0 1\n1 1']) assert.throws(()=>parseEng('S 10 20 P 0.01 0.1 Test\n'+rows));
+assert.throws(()=>parseEng('S 10 20 P 0.2 0.1 Test\n0 1\n1 0'));
+for(const file of ENG_FILES) assert(parseEng(readFileSync('data/motors/'+file,'utf8')).totalImpulse>0);
+console.log(`PASS: mass accounting, analytic RK4 reference, launch pad, CP, fin centroid, all 12 motor curves; C6=${flight.stats.apogee.toFixed(2)} m`);

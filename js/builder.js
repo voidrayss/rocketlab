@@ -10,7 +10,7 @@ import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 
 import { COMPONENT_TYPES, MATERIALS, layoutPositions, totalLength,
-         frontDiameter, rearDiameter, maxBodyDiameter } from "./rocket.js";
+         frontDiameter, rearDiameter, maxBodyDiameter, noseConeProfile } from "./rocket.js";
 import { stabilityMargin } from "./aero.js";
 import { getMotor } from "./motors.js";
 import { buildReport } from "./analysis.js";
@@ -118,18 +118,9 @@ export class Builder {
         const w = c.diameter * scale;
         ctx.beginPath();
         ctx.moveTo(cx, y);
-        if (c.shape === "cone") {
-          ctx.lineTo(cx - w / 2, y + c.length * scale);
-          ctx.lineTo(cx + w / 2, y + c.length * scale);
-        } else if (c.shape === "blunt") {
-          ctx.quadraticCurveTo(cx - w, y + c.length * scale, cx - w / 2, y + c.length * scale);
-          ctx.lineTo(cx + w / 2, y + c.length * scale);
-          ctx.quadraticCurveTo(cx + w, y + c.length * scale, cx, y);
-        } else { // ogive
-          ctx.quadraticCurveTo(cx - w / 2, y + c.length * scale * 0.4, cx - w / 2, y + c.length * scale);
-          ctx.lineTo(cx + w / 2, y + c.length * scale);
-          ctx.quadraticCurveTo(cx + w / 2, y + c.length * scale * 0.4, cx, y);
-        }
+        const profile = noseConeProfile(c, 48);
+        for (const point of profile) ctx.lineTo(cx - point.r * scale, y + point.x * scale);
+        for (const point of [...profile].reverse()) ctx.lineTo(cx + point.r * scale, y + point.x * scale);
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
 

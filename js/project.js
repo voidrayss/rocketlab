@@ -38,7 +38,6 @@ export function parseProject(text) {
     } else {
       const diameter = c.type === 'transition' ? Math.min(c.frontDiameter, c.rearDiameter) : c.diameter;
       if (c.wallThickness * 2 >= diameter) throw new Error('Wall thickness must leave a hollow interior.');
-      if (c.type === 'transition' && c.frontDiameter === c.rearDiameter) throw new Error('Use a body tube for an equal-diameter transition.');
     }
     if (c.type === 'finCan') validateFinCan(params);
     return { type: c.type, params };

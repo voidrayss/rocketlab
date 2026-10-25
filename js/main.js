@@ -211,12 +211,13 @@ document.getElementById("back-btn").addEventListener("click", () => switchTab("b
 
 // ---- Launch: build sim inputs, run it, show the flight -----------------
 function runSimulation() {
+  try {
   const motor = getMotor(rocket.motorId);
   const L = totalLength(rocket) || 0.5;
 
   // Dry mass = all structural components (no motor); motor mass handled by sim.
   const { mass: structureMass } = massProperties(rocket, 0);
-  const dryMass = structureMass + (motor.totalMass - motor.propellantMass);
+  const dryMass = structureMass; // Entire motor mass is added by the simulator.
 
   const Cd = dragCoefficient(rocket);
   const area = referenceArea(rocket);
@@ -229,6 +230,9 @@ function runSimulation() {
 
   flight.load(result);
   switchTab("fly");
+  } catch (error) {
+    document.getElementById("project-status").textContent = "Simulation unavailable: " + error.message;
+  }
 }
 
 document.getElementById("launch-btn").addEventListener("click", runSimulation);

@@ -114,11 +114,10 @@ analysis, full-assembly exports, and CAD solids for noses/transitions remain to
 be implemented. Onshape's separate preview scaffolding does not yet recognize
 fin cans; use the working local STEP export for this component.
 
-The existing motor-casing double-count in flight inputs, nose CP aliases, and
-equal-diameter transition singularity remain known numerical issues. None of
-these baseline formulas were rewritten for the CAD milestone. The original C6
-flight still yields ~166.2 m, which is a regression baseline, not independent
-validation of flight accuracy. Shipped thrust curves remain approximate.
+Confirmed mass accounting, fin centroid, launch support, burnout, nose alias,
+and transition CP bugs have since been corrected; see [NUMERICS.md](NUMERICS.md).
+The corrected C6 baseline is ~185.7 m. Shipped thrust curves remain approximate,
+and cross-model flight validation remains to be performed.
 
 ## Hosting audit (2026-10-25)
 

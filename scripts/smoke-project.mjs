@@ -21,7 +21,6 @@ for (const mutate of [
   d => d.rocket.components[0].type = 'constructor',
   d => d.rocket.components[2].count = 2.5,
   d => d.rocket.components[2].sweep = 'bad',
-  d => d.rocket.components[3].rearDiameter = d.rocket.components[3].frontDiameter,
 ]) {
   const data = JSON.parse(text); mutate(data);
   assert.throws(() => parseProject(JSON.stringify(data)));

@@ -22,21 +22,27 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   genuine OpenCascade solids for fin cans/body tubes, verified STEP and
   adjustable STL export, metadata download, separate STEP inspection/preview,
   browser and CAD verification scripts.
-- Continuity milestone (this document's commit): permanent AGENTS.md instructions
+- `0b840bd`: permanent AGENTS.md instructions
   and this authoritative status/roadmap, based on the actual repository state.
+
+- Numerical correction milestone (commit containing this entry): mass accounting,
+  exact fin centroid, pad support/liftoff outcome, boxcar burnout splitting,
+  transition CP singularity, nose aliases/shared 2D profile, motor endpoint and
+  RASP validation. See docs/NUMERICS.md and smoke-numerics.mjs.
+
 
 ## Current development phase
 
-Priority 1: reproduce and correct confirmed numerical issues with regressions,
-then integrate imported CAD components and metadata into the rocket assembly.
+Priority 2: integrate imported CAD components and metadata into the rocket assembly.
+The confirmed initial numerical corrections are complete; additional accuracy
+work remains listed below.
 Do not restart or replace the working CAD pipeline.
 
 ## Remaining roadmap (priority order)
 
-1. Numerical reliability: correct motor casing double-count, transition CP
-   singularity, nose alias inconsistency, launch-pad handling, and additional
-   confirmed mass/CG/interpolation/unit issues. Establish changed baselines with
-   evidence and retain the engines rather than rewriting them.
+1. Further numerical reliability: shape-aware nose mass/CP, exact shell masses,
+   atmosphere range, event interpolation, and OpenRocket comparisons. Initial
+   confirmed corrections are complete; see docs/NUMERICS.md.
 2. Imported CAD assembly components: explicit positioning/orientation, density,
    mass/centroid integration, user-provided aerodynamic role/parameters, builder
    and 3D support, native-project persistence of geometry and metadata.
@@ -51,6 +57,7 @@ Do not restart or replace the working CAD pipeline.
 7. Prepare static GitHub Pages configuration/instructions without enabling,
    deploying, merging main, or changing DNS absent explicit approval.
 
+
 ## Test results
 
 - 2026-10-25, current checkout `1587450`: `node scripts/check.mjs` rerun;
@@ -62,20 +69,19 @@ Do not restart or replace the working CAD pipeline.
 - Prior milestone reported: installed Chrome online/offline checks for builder,
   3D orbit/zoom, JSON controls/download/input assignment, graphs/playback, CAD
   preview/download/import, stale-export protection, and CDN failures PASS.
-- Original C6 baseline ~166.2 m includes the known casing double-count; it is
-  a regression reference, not independent physical validation.
+- Corrected numerical baseline: ~185.7 m C6 apogee, 108.05 g loaded mass,
+  ~0.99 cal. Historical 166.2 m included duplicated casing. Nine smoke tests
+  and source syntax checks PASS on 2026-10-25 after corrections, including exact
+  mass and zero-drag analytic flight reference, all 12 motor files, and invalid inputs.
+
+- 2026-10-25 numerical milestone: real-kernel and independent-reader checks
+  rerun PASS; Chrome online and CDN-blocked tests rerun PASS.
 
 ## Known bugs and limitations
 
-- Flight callers add spent casing to structural dry mass while physics adds
-  full motor mass: casing is counted twice. Regression correction pending.
-- Equal-diameter transitions divide by zero in CP; conical aliases are not
-  handled consistently in CP and the 2D profile.
-- Curve-motor initial zero thrust can send the unconstrained state below ground
-  and terminate before liftoff. Launch detection/event handling needs correction.
 - Atmosphere only implements the troposphere; extrapolation is not valid at
   arbitrary altitudes. Input validation/integration bounds require review.
-- Separate fin CG and non-conical nose mass use simplified approximations.
+- Non-conical nose mass and non-ogive CP still use simplified approximations.
 - Approximate shipped motor curves; drag/fin flutter are simplified; no wind,
   attitude dynamics, or independently validated structural safety predictions.
 - STEP import is separate inspection only. Native projects do not yet retain
@@ -111,8 +117,8 @@ Do not restart or replace the working CAD pipeline.
 ## Next actions
 
 1. Read AGENTS.md, this file, git status/history; preserve HANDOFF.md.
-2. Reproduce numerical issues with deterministic tests, correct confirmed errors,
-   and document intentionally changed C6 predictions rather than hiding changes.
+2. Implement persistent imported-CAD components with explicit position/density
+   and user-provided aerodynamic interpretation, preserving the source STEP.
 3. Run smoke/syntax checks and relevant browser/CAD checks; update this document,
    commit and push the milestone, then proceed to imported-CAD assembly support.
 4. Obtain temporary kernel/reader paths using docs/CAD.md if needed; never add

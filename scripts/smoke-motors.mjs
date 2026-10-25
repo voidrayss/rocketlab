@@ -140,7 +140,7 @@ console.log(`\nmotorOptions: OK (${opts.length} motors, grouped by class, C6 pre
 function flyApogee(motor) {
   const rocket = defaultRocket();
   const { mass: structureMass } = massProperties(rocket, 0);
-  const dryMass = structureMass + (motor.totalMass - motor.propellantMass);
+  const dryMass = structureMass; // Entire motor mass is added by the simulator.
   const Cd = dragCoefficient(rocket);
   const area = referenceArea(rocket);
   const result = simulateFlight({

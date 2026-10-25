@@ -117,8 +117,8 @@ export function buildReport(rocket, motor) {
   const noseShape = nose ? canonicalNoseShape(nose.shape) : "ogive";
   const noseInfo = NOSE_SHAPE_INFO[noseShape] ?? NOSE_SHAPE_INFO.ogive;
 
-  // --- Flight (dry mass = structure + spent casing, matches main.js) ---
-  const dryMass = structureMass + (motor.totalMass - motor.propellantMass);
+  // --- Flight (dry mass = structure only; simulator adds the entire motor, matches main.js) ---
+  const dryMass = structureMass; // Entire motor mass is added by the simulator.
   const area = referenceArea(rocket);
   const result = simulateFlight({
     motor, dryMass, Cd, area,
@@ -137,6 +137,9 @@ export function buildReport(rocket, motor) {
   else stabWord = "OVER-STABLE: it will weathercock strongly into the wind. Trim fin size or move mass rearward.";
 
   const warnings = [];
+  if (!s.launched) warnings.push("The rocket never lifted off the launch pad.");
+  else if (!s.railCleared) warnings.push("The rocket did not clear the launch rail.");
+  if (s.termination === "time-limit") warnings.push("Simulation time limit reached before landing.");
   if (rocket.components.some(c => c.type === "finCan")) warnings.push("Fin cans are inline sleeve sections. Do not add another tube or fin set for the same physical part. Sleeve-step drag and structural strength are not validated; flutter uses the first fin set.");
   if (calibers < 1) warnings.push("Stability margin is below 1 caliber.");
 
@@ -200,7 +203,7 @@ export function buildReport(rocket, motor) {
     metric("Thrust-to-weight ratio", s.thrustToWeight, "",
       "Average thrust divided by launch weight. A safe launch needs at least about 5; below that the rocket leaves the rail too slowly to be stable. Note that peak thrust is usually higher, so the instant off the pad can exceed this ratio.",
       "Average thrust / (liftoff mass * g)."),
-    metric("Rail-exit velocity", s.railExitVelocity, "m/s",
+    metric("Rail-exit velocity", s.railExitVelocity ?? "Not cleared", "m/s",
       "Speed as the rocket clears a 1 m launch rail. Fins only stabilize once there is enough airflow; aim for roughly 15 m/s or more.",
       "Velocity at " + s.railLength + " m (ISA atmosphere, RK4 sim)."),
     metric("Max dynamic pressure (max-Q)", s.maxQ, "Pa",

@@ -183,7 +183,7 @@ export function thrustAt(motor, t) {
   if (motor.curve && motor.curve.length > 0) {
     return interpolateCurve(motor.curve, t);
   }
-  if (t < 0 || t > motor.burnTime) return 0;
+  if (t < 0 || t >= motor.burnTime) return 0;
   return motor.avgThrust;
 }
 
@@ -191,7 +191,7 @@ export function thrustAt(motor, t) {
 // sample time (treating ignition at t=0 with 0 thrust) and after the last.
 function interpolateCurve(curve, t) {
   const last = curve[curve.length - 1];
-  if (t <= 0 || t > last.t) return 0;
+  if (t < 0 || t > last.t) return 0;
   // Before the first data point, ramp from (0, 0) up to the first sample.
   const first = curve[0];
   if (t <= first.t) {

@@ -137,11 +137,11 @@ export function parseEng(text) {
                     " (" + lines[0] + ")");
   }
   const name = header[0];
-  const diameterMm = parseFloat(header[1]);
-  const lengthMm = parseFloat(header[2]);
+  const diameterMm = Number(header[1]);
+  const lengthMm = Number(header[2]);
   const delays = header[3];
-  const propellantMass = parseFloat(header[4]);
-  const totalMass = parseFloat(header[5]);
+  const propellantMass = Number(header[4]);
+  const totalMass = Number(header[5]);
   // Manufacturer may contain spaces; join any trailing tokens.
   const manufacturer = header.slice(6).join(" ");
 
@@ -150,16 +150,20 @@ export function parseEng(text) {
     throw new Error("parseEng: non-numeric header field in '" + lines[0] + "'");
   }
 
+  if (diameterMm <= 0 || lengthMm <= 0 || propellantMass < 0 || totalMass <= 0 || propellantMass > totalMass) {
+    throw new Error("parseEng: invalid dimensions or motor masses");
+  }
+
   // --- Data lines (time thrust pairs) ---
   const curve = [];
   let prevT = -Infinity;
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].split(/\s+/);
-    if (parts.length < 2) continue;
-    const t = parseFloat(parts[0]);
-    const thrust = parseFloat(parts[1]);
-    if (!Number.isFinite(t) || !Number.isFinite(thrust)) continue;
-    if (t < prevT) {
+    if (parts.length !== 2) throw new Error("parseEng: expected a single motor with time/thrust pairs");
+    const t = Number(parts[0]);
+    const thrust = Number(parts[1]);
+    if (!Number.isFinite(t) || !Number.isFinite(thrust) || t < 0 || thrust < 0) throw new Error("parseEng: invalid time or thrust");
+    if (t <= prevT) {
       throw new Error("parseEng: curve time not monotonic at '" + lines[i] + "'");
     }
     curve.push({ t, thrust });
@@ -172,6 +176,7 @@ export function parseEng(text) {
 
   const burnTime = curve[curve.length - 1].t;
   const totalImpulse = integrateCurve(curve);
+  if (burnTime <= 0 || totalImpulse <= 0 || curve.at(-1).thrust !== 0) throw new Error("parseEng: curve needs positive impulse/duration and zero final thrust");
   const avgThrust = burnTime > 0 ? totalImpulse / burnTime : 0;
   const peakThrust = curve.reduce((m, p) => Math.max(m, p.thrust), 0);
   const letter = impulseClass(totalImpulse);

@@ -1,4 +1,4 @@
-import { finCanProperties } from "./fincan.js";
+import { finCanProperties, finAxialCentroid } from "./fincan.js";
 // ===========================================================================
 // aero.js — mass properties + aerodynamics.
 //
@@ -90,7 +90,7 @@ export function massProperties(rocket, extraMass = 0, extraMassX = null) {
         const area = 0.5 * (c.rootChord + c.tipChord) * c.span;
         const vol = area * c.thickness * c.count;
         m = vol * MATERIALS[c.material];
-        cx = x0 + c.rootChord / 2;
+        cx = x0 + finAxialCentroid(c);
         break;
       }
     }
@@ -141,7 +141,7 @@ export function centerOfPressure(rocket) {
       // Nose cone: CNalpha = 2 (referenced to its own base area), CP location
       // depends on shape. (ogive ~0.466 L, cone 0.666 L).
       const cn = 2 * ((PI * (c.diameter / 2) ** 2) / Aref);
-      const xcp = c.shape === "cone" ? x0 + 0.666 * c.length
+      const xcp = canonicalNoseShape(c.shape) === "conical" ? x0 + 0.666 * c.length
                                      : x0 + 0.466 * c.length; // ogive default
       cnSum += cn; cnXSum += cn * xcp;
     }
@@ -153,7 +153,7 @@ export function centerOfPressure(rocket) {
       const cn = 2 * ((Ar - Af) / Aref);
       // CP of a cone frustum (Barrowman form).
       const df = c.frontDiameter, dr = c.rearDiameter;
-      const xcp = x0 + (c.length / 3) * (1 + (1 - df / dr) / (1 - (df / dr) ** 2));
+      const xcp = x0 + (c.length / 3) * (1 + dr / (df + dr));
       cnSum += cn; cnXSum += cn * xcp;
     }
 
