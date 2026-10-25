@@ -31,11 +31,15 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   RASP validation. See docs/NUMERICS.md and smoke-numerics.mjs.
 
 
-- Imported-CAD assembly/metadata milestone (commit containing this entry): exact
+- `07a0161`: imported-CAD assembly/metadata: exact
   STEP/source/mesh persistence, density and transformed volume-centroid mass/CG,
   explicit internal or cylindrical body aerodynamic role, replace/add workflow,
   material/density and position/rotation editor, v2 native project support,
   SHA-256 source checks, guarded original body/fin-can parameter restoration.
+
+- Centering-ring milestone (commit containing this entry): exact internal annular
+  volume/mass/CG, absolute placement, editable geometry/material, builder/3D,
+  native project persistence, STEP/STL/metadata export and restoration support.
 
 ## Current development phase
 
@@ -56,7 +60,8 @@ Do not restart or replace the working CAD pipeline.
    Current v2 exact-source + properties + regeneration gate is operational for
    bodies/fin cans, with custom fallback for changed source or legacy metadata.
 4. Advanced CAD: root fillets, fin profiles, through-wall fins, mounts, rings,
-   couplers, bulkheads, electronics and recovery compartments.
+   couplers, bulkheads, electronics and recovery compartments. Centering rings
+   are complete; fit/structural checks are still manual.
 5. Interoperability: test actual external CAD applications where available;
    do not equate the separately packaged OCCT reader with a separate CAD kernel.
 6. OpenRocket reference cases and license review; compare assumptions and
@@ -88,6 +93,11 @@ Do not restart or replace the working CAD pipeline.
   real-kernel/independent-reader suite PASS; Chrome online/offline suite PASS,
   including source-fingerprint metadata restoration, replacement without extra
   components, density/rotation and version-2 project round trip.
+
+- 2026-10-25 ring milestone: all eleven smoke tests/source syntax PASS; real
+  kernel ring volume/centroid/topology/STEP round trip PASS; existing independent
+  reader suite PASS; Chrome online/offline suite PASS including ring editor,
+  solid generation and project persistence.
 
 ## Known bugs and limitations
 
@@ -127,7 +137,7 @@ Do not restart or replace the working CAD pipeline.
 ## GitHub and deployment
 
 - origin: https://github.com/voidrayss/rocketlab.git
-- Active/tracking branch: development/rocketlab-2; latest prior implementation ea74d9d; this milestone adds imported CAD.
+- Active/tracking branch: development/rocketlab-2; latest prior implementation 07a0161; this milestone adds centering rings.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.

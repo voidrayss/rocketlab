@@ -142,7 +142,7 @@ export class Viewer3D {
         mesh = this._buildBody(c);
       } else if (c.type === COMPONENT_TYPES.TRANSITION) {
         mesh = this._buildTransition(c);
-      } else if (c.type === "finCan") {
+      } else if (c.type === "finCan" || c.type === "ring") {
         mesh = new THREE.Group();
         const shape = new THREE.Shape();
         shape.absarc(0, 0, c.diameter / 2, 0, Math.PI * 2, false);
@@ -153,7 +153,7 @@ export class Viewer3D {
         sleeve.rotation.x = Math.PI / 2;
         sleeve.position.y = -x0;
         mesh.add(sleeve);
-        mesh.add(this._buildFins(c, c.diameter, x0 + c.length - c.rootChord));
+        if (c.type === "finCan") mesh.add(this._buildFins(c, c.diameter, x0 + c.length - c.rootChord));
       } else if (c.type === COMPONENT_TYPES.FINS) {
         mesh = this._buildFins(c, maxD, x0);
       }

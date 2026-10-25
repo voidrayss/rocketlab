@@ -1,13 +1,15 @@
+import { ringProperties } from "./rings.js";
 import { validateImported, PROJECT_LIMIT } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // Versioned project interchange; pure ES module, no browser or server required.
-import { createNose, createBody, createTransition, createFins, createFinCan, createImported, MATERIALS, NOSE_SHAPES } from './rocket.js';
+import { createNose, createBody, createTransition, createFins, createFinCan, createImported, createRing, MATERIALS, NOSE_SHAPES } from './rocket.js';
 import { MOTOR_CATALOG } from './motors.js';
-const factories = { nose: createNose, body: createBody, transition: createTransition, fins: createFins, finCan: createFinCan, imported: createImported };
+const factories = { nose: createNose, body: createBody, transition: createTransition, fins: createFins, finCan: createFinCan, imported: createImported, ring: createRing };
 const dimensions = {
   nose: ['length', 'diameter', 'wallThickness'],
   body: ['length', 'diameter', 'wallThickness'],
   transition: ['length', 'frontDiameter', 'rearDiameter', 'wallThickness'],
+  ring: ['length','diameter','innerDiameter'],
   finCan: ['length', 'diameter', 'innerDiameter', 'rootChord', 'tipChord', 'span', 'thickness'],
   fins: ['rootChord', 'tipChord', 'span', 'thickness'],
 };
@@ -50,6 +52,7 @@ export function parseProject(text) {
       if (c.wallThickness * 2 >= diameter) throw new Error('Wall thickness must leave a hollow interior.');
     }
     if (c.type === 'finCan') validateFinCan(params);
+    if (c.type === 'ring') {params.axialOffset=c.axialOffset;ringProperties(params);}
     return { type: c.type, params };
   });
   // Allocate IDs only after the complete file has passed validation.

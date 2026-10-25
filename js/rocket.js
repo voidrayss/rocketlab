@@ -1,3 +1,4 @@
+import { ringProperties } from "./rings.js";
 import { validateImported } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // ===========================================================================
@@ -98,7 +99,12 @@ export function createImported(options) {
   return c;
 }
 
-export function isInternal(c) { return c.type === "imported" && c.aeroRole === "internal"; }
+export function createRing({length=.005,diameter=.048,innerDiameter=.029,axialOffset=.4,material="plywood"}={}) {
+  const c={id:makeId(),type:"ring",length,diameter,innerDiameter,axialOffset,material};
+  ringProperties(c); return c;
+}
+
+export function isInternal(c) { return c.type === "ring" || (c.type === "imported" && c.aeroRole === "internal"); }
 
 // A default starter rocket so the app opens with something flyable.
 export function defaultRocket() {

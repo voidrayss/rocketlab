@@ -418,4 +418,9 @@ material/density, position, rotation, actual source geometry and properties are
 retained in version-2 JSON projects. New companion metadata uses source
 fingerprints and a regeneration check before restoring original parametric
 body/fin-can parts. Details and limitations are in [docs/CAD.md](docs/CAD.md).
-Run `node scripts/check.mjs` for all ten smoke tests and syntax checks.
+Run `node scripts/check.mjs` for all eleven smoke tests and syntax checks.
+
+
+**Centering rings** are now available as internal manufacturing parts with exact
+annular mass/CG, placement, editable dimensions/material, 3D display, JSON
+persistence, and solid STEP/STL/metadata export. They add no exterior aerodynamics.

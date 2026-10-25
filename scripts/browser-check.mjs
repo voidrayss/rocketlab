@@ -127,6 +127,22 @@ try {
  await choose('#project-file',dir+'/'+customPath);await waitText('#project-status','Project loaded');
  assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),3);
  console.log('PASS: fingerprint metadata restoration, imported assembly replacement, density/rotation, and native CAD project round trip');
+ await click('[data-add="ring"]');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),4);
+ assert.equal(await evaluate('document.querySelector("[data-field=axialOffset]").value'),'0.4');
+ await click('#cad-generate');await until(()=>evaluate('!document.querySelector("#cad-generate").disabled'),100000);
+ assert(await evaluate('!document.querySelector("#cad-step").disabled'),await evaluate('document.querySelector("#cad-status").textContent'));
+ const ringProps=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(ringProps.valid && ringProps.solids===1 && Math.abs(ringProps.centroidMm[2]-2.5)<1e-8);
+ await evaluate('const name=document.querySelector("#project-name");name.value="Ring verification";name.dispatchEvent(new Event("change"));');
+ await click('#save-project-btn');
+ const ringProjectPath=await until(async()=>(await readdir(dir)).find(f=>f==='Ring_verification.json'));
+ const ringProject=JSON.parse(await readFile(dir+'/'+ringProjectPath,'utf8'));
+ assert(ringProject.rocket.components.some(c=>c.type==='ring' && c.axialOffset===.4));
+ await choose('#project-file',dir+'/'+ringProjectPath);await waitText('#project-status','Project loaded');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),4);
+ console.log('PASS: centering-ring builder/editor, valid CAD solid, and native project persistence');
+
  const screenshot=await call('Page.captureScreenshot',{format:'png'});await writeFile(dir+'/verified.png',Buffer.from(screenshot.data,'base64'));
  assert.equal(exceptions.length,0,exceptions.join('\n'));
  console.log('PASS: CAD worker, B-rep preview, STEP/STL/metadata downloads, STEP import and volume');

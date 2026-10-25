@@ -9,7 +9,7 @@ import { runCAD } from "./cad/client.js";
 // view).
 // ===========================================================================
 
-import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan, createImported, layoutPositions, MATERIALS,
+import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan, createImported, createRing, layoutPositions, MATERIALS,
          totalLength } from "./rocket.js";
 import { motorOptions, getMotor, loadEngFiles } from "./motors.js";
 import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
@@ -71,6 +71,7 @@ const factories = {
   transition: createTransition,
   fins: createFins,
   finCan: createFinCan,
+  ring: createRing,
 };
 document.querySelectorAll("[data-add]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -381,8 +382,8 @@ async function performCAD(job, snapshot = null) {
 }
 document.getElementById("cad-generate").addEventListener("click", () => {
   const component = selectedCADComponent();
-  if (!component || !["body", "finCan"].includes(component.type)) {
-    document.getElementById("cad-status").textContent = "Select a body tube or fin can in the component list first."; return;
+  if (!component || !["body", "finCan", "ring"].includes(component.type)) {
+    document.getElementById("cad-status").textContent = "Select a body tube, fin can, or centering ring in the component list first."; return;
   }
   performCAD({component: {...component}, toleranceMm: Number(document.getElementById("cad-tolerance").value)}, JSON.stringify(component));
 });

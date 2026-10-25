@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { cadJob } from '../js/cad/solid.js';
-import { createFinCan, createBody } from '../js/rocket.js';
+import { createFinCan, createBody, createRing } from '../js/rocket.js';
 import { finCanProperties } from '../js/fincan.js';
 const [loader,wasm,reader,readerWasm]=process.argv.slice(2);
 if(!loader || !wasm) {console.error('Provide the pinned OpenCascade loader (.mjs) and WASM paths. See docs/CAD.md.');process.exit(1);}
@@ -50,4 +50,9 @@ assert(fine.mesh.indices.length>coarse.mesh.indices.length);
 assert.throws(()=>cadJob(oc,{action:'import',bytes:new TextEncoder().encode('invalid STEP')}));
 assert.throws(()=>cadJob(oc,{component:createFinCan(),toleranceMm:0}));
 assert.throws(()=>cadJob(oc,{component:{...body,wallThickness:1}}));
+const ring=createRing();const ringCAD=cadJob(oc,{component:ring});
+const ringVolume=Math.PI*(ring.diameter**2-ring.innerDiameter**2)*ring.length/4*1e9;
+assert.equal(ringCAD.properties.solids,1);assert(Math.abs(ringCAD.properties.volumeMm3-ringVolume)<1e-6);
+assert(Math.abs(ringCAD.properties.centroidMm[2]-ring.length*500)<1e-9);
+console.log('PASS: centering-ring solid, exact volume/centroid and STEP round trip');
 console.log('PASS: tube dimensions/volume, adjustable tessellation, malformed STEP and invalid dimensions');

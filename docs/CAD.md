@@ -186,3 +186,16 @@ Verified: new `smoke-imported.mjs` schema/transform/mass/CG/proxy/persistence an
 metadata tests, plus real Chrome original-parameter restoration, replacement
 without extra components, density/rotation edits, and native CAD project round
 trip. Existing real-kernel and independent-reader tests continue to pass.
+
+## Centering rings
+
+**Centering ring** adds an internal annular solid with editable outer/bore
+ diameters, axial thickness, material, and absolute position from the nose.
+Its mass uses the exact annular volume; CG lies at the axial midpoint. It adds
+no external length, area, CP, wetted area, or drag. Fit and interference with
+body tubes/motor mounts must be confirmed by the user. It is not a structural
+strength calculation. Rings support 2D/3D display, native project persistence,
+STEP/STL/metadata export, and v2 metadata restoration through the existing CAD
+pipeline. CAD volume, centroid, topology, and STEP round trip have been tested,
+as have the browser controls and project round trip. No Onshape FeatureScript
+implementation is added for rings.

@@ -1,3 +1,4 @@
+import { ringProperties } from "./rings.js";
 import { validateImported, importedPoint } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // ===========================================================================
@@ -54,6 +55,13 @@ FIELDS.finCan = [
   { key: "innerDiameter", label: "Sleeve inner diameter (m)", step: 0.001 },
   ...FIELDS.fins,
 ];
+FIELDS.ring = [
+  {key:"length",label:"Ring axial thickness (m)",step:.001},
+  {key:"diameter",label:"Outer diameter (m)",step:.001},
+  {key:"innerDiameter",label:"Bore diameter (m)",step:.001},
+  {key:"axialOffset",label:"Axial position from nose (m)",step:.005},
+  {key:"material",label:"Material",type:"select",options:Object.keys(MATERIALS)},
+];
 FIELDS.imported = [
   {key:"name",label:"Part name",type:"text"},
   {key:"aeroRole",label:"Aerodynamic interpretation",type:"select",options:["internal","body"]},
@@ -73,6 +81,7 @@ const LABELS = {
   [COMPONENT_TYPES.FINS]: "Fins",
   finCan: "Integrated fin can",
   imported: "Imported CAD",
+  ring: "Centering ring",
 };
 
 export class Builder {
@@ -128,7 +137,11 @@ export class Builder {
       ctx.strokeStyle = "#0e1116";
       ctx.lineWidth = 1.5;
 
-      if (c.type === "imported") {
+      if (c.type === "ring") {
+        ctx.strokeStyle="#8bd3b0";
+        ctx.strokeRect(cx-c.diameter*scale/2,y,c.diameter*scale,Math.max(2,c.length*scale));
+        ctx.fillText("RING",cx+c.diameter*scale/2+4,y+4);
+      } else if (c.type === "imported") {
         const axial = importedPoint(c,c.cad.properties.centroidMm)[0];
         ctx.strokeStyle = "#8bd3b0";
         if (c.aeroRole === "body") {
@@ -254,6 +267,7 @@ export class Builder {
     }
     this.editorEl.innerHTML = `<strong>${LABELS[c.type]}</strong>`;
     if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Inline sleeve section; wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
+    if (c.type === "ring") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal annular solid: exact volume and midpoint centroid; no external drag or CP. Confirm clearances and placement against your body and motor mount.</p>`);
     if (c.type === "imported") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal: mass only, absolute axial position. Body: explicit cylindrical aerodynamic proxy in the axial stack; offset is relative to its stack start. STEP geometry remains separate from that proxy. Rotations apply X then Y then Z.</p>`);
     for (const f of FIELDS[c.type]) {
       const label = document.createElement("label");
@@ -290,7 +304,8 @@ export class Builder {
           if (!Number.isFinite(v)) return;
           const candidate = { ...c, [f.key]: f.int ? Math.round(v) : v };
           try {
-            if (c.type === "imported") validateImported(candidate);
+            if (c.type === "ring") ringProperties(candidate);
+            else if (c.type === "imported") validateImported(candidate);
             else if (c.type === "finCan") validateFinCan(candidate);
             else if (v <= 0 && f.key !== "sweep") throw new Error("Dimension must be positive.");
             Object.assign(c, candidate);

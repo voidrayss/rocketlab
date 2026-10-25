@@ -46,7 +46,7 @@ export function metadataComparison(metadata, imported) {
   const close=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=Math.max(1e-6,Math.abs(b)*1e-6);
   const propertiesMatch=!!p && p.solids===q.solids && close(p.volumeMm3,q.volumeMm3) && p.centroidMm?.every((v,i)=>close(v,q.centroidMm[i])) && p.boundsMm?.every((a,i)=>a.every((v,j)=>close(v,q.boundsMm[i][j])));
   const exactSource=metadata.version===2 && metadata.stepSha256===imported.sha256;
-  return {propertiesMatch,exactSource,canRestore:propertiesMatch&&exactSource&&['body','finCan'].includes(metadata.component?.type)};
+  return {propertiesMatch,exactSource,canRestore:propertiesMatch&&exactSource&&['body','finCan','ring'].includes(metadata.component?.type)};
 }
 export async function verifyProjectAssets(rocket) {
   for(const c of rocket.components) if(c.type==='imported') {

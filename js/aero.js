@@ -1,3 +1,4 @@
+import { ringProperties } from "./rings.js";
 import { importedPoint } from "./imported.js";
 import { finCanProperties, finAxialCentroid } from "./fincan.js";
 // ===========================================================================
@@ -80,6 +81,7 @@ export function massProperties(rocket, extraMass = 0, extraMassX = null) {
         cx = x0 + c.length / 2;
         break;
       }
+      case "ring": { const p=ringProperties(c); m=p.volume*MATERIALS[c.material]; cx=x0+p.centroidX; break; }
       case "imported": {
         m = c.cad.properties.volumeMm3 * 1e-9 * c.density;
         cx = x0 + importedPoint(c, c.cad.properties.centroidMm)[0];
@@ -120,7 +122,7 @@ function totalLengthGuess(rocket) {
   const pos = layoutPositions(rocket);
   let maxEnd = 0;
   for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS || (c.type === "imported" && c.aeroRole === "internal")) continue;
+    if (c.type === COMPONENT_TYPES.FINS || c.type === "ring" || (c.type === "imported" && c.aeroRole === "internal")) continue;
     const x0 = pos.get(c.id) ?? 0;
     maxEnd = Math.max(maxEnd, x0 + c.length);
   }

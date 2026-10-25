@@ -1,3 +1,4 @@
+import { ringProperties } from "../rings.js";
 // Direct OpenCascade bindings; no mesh-to-solid conversion. Kernel units: mm.
 import { validateFinCan } from '../fincan.js';
 export function cadJob(oc, job) {
@@ -63,8 +64,9 @@ export function cadJob(oc, job) {
       if (!(job.bytes instanceof Uint8Array) || job.bytes.byteLength > 20000000) throw new Error('STEP import limit is 20 MB.');
       shape=readSTEP(job.bytes);
     } else {
-      if (!component || !['body','finCan'].includes(component.type)) throw new Error('Select a body tube or integrated fin can for CAD export.');
+      if (!component || !['body','finCan','ring'].includes(component.type)) throw new Error('Select a body tube, fin can or centering ring for CAD export.');
       if (component.type==='finCan') validateFinCan(component);
+      if (component.type==='ring') ringProperties(component);
       const c=Object.fromEntries(Object.entries(component).map(([k,v])=>[k,typeof v==='number'?v*1000:v]));
       const R=c.diameter/2, r=component.type==='body'?R-c.wallThickness:c.innerDiameter/2;
       if (!(R>r && r>0 && c.length>0 && c.length<=2000)) throw new Error('Invalid sleeve dimensions.');
@@ -83,7 +85,7 @@ export function cadJob(oc, job) {
       }
     }
     const properties=inspect(shape);
-    if(job.action!=='import' && properties.solids!==1) throw new Error('Fin-can union must form exactly one solid.');
+    if(job.action!=='import' && properties.solids!==1) throw new Error('Generated part must form exactly one solid.');
     const tolerance=job.toleranceMm ?? .1;
     if(!Number.isFinite(tolerance) || tolerance<.01 || tolerance>2) throw new Error('Mesh tolerance must be 0.01–2 mm.');
     const tessellation=mesh(shape,tolerance);

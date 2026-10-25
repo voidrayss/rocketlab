@@ -1,3 +1,4 @@
+import { ringProperties } from "./rings.js";
 import { finCanProperties } from "./fincan.js";
 // ===========================================================================
 // analysis.js: the educational analysis engine (DOM-free, pure logic).
@@ -51,6 +52,7 @@ function componentMass(c) {
       const rAvg = (c.frontDiameter + c.rearDiameter) / 4;
       return 2 * PI * rAvg * c.wallThickness * c.length * MATERIALS[c.material];
     }
+    case "ring": return ringProperties(c).volume * MATERIALS[c.material];
     case "imported": return c.cad.properties.volumeMm3 * 1e-9 * c.density;
     case COMPONENT_TYPES.FINCAN: return finCanProperties(c).volume * MATERIALS[c.material];
     case COMPONENT_TYPES.FINS: {
@@ -64,6 +66,7 @@ function componentMass(c) {
 
 const PART_NAMES = {
   imported: "Imported CAD",
+  ring: "Centering ring",
   [COMPONENT_TYPES.NOSE]: "Nose cone",
   [COMPONENT_TYPES.BODY]: "Body tube",
   [COMPONENT_TYPES.TRANSITION]: "Transition",
