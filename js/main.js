@@ -14,7 +14,6 @@ import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
 import { simulateFlight } from "./physics.js";
 import { Builder } from "./builder.js";
 import { FlightView } from "./flight.js";
-import { Viewer3D } from "./viewer3d.js";
 import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
@@ -41,13 +40,15 @@ const builder = new Builder(
 );
 
 // ---- 3D viewer ---------------------------------------------------------
-const viewer = new Viewer3D(document.getElementById("viewer3d"));
+let viewer = null;
+let viewerLoading = null;
+let activeTab = "build";
 
 // Re-render the builder (2D + analysis) and, if the 3D view is showing, the
 // 3D scene too. Keeping this in one place means every edit path stays in sync.
 function refresh() {
   builder.render(rocket);
-  if (view3dActive) viewer.render(rocket);
+  if (view3dActive && viewer) viewer.render(rocket);
 }
 
 // ---- Flight view -------------------------------------------------------
@@ -137,7 +138,20 @@ loadEngFiles()
 // Switch the Builder center panel between the 2D canvas and the 3D viewer.
 // The 3D animation loop runs only while 3D is shown, and is stopped when we
 // switch back, so we never leave an idle RAF loop running.
-function setCenterView(mode) {
+async function setCenterView(mode) {
+  if (mode === "3d" && !viewer) {
+    const button = document.getElementById("view3d-btn");
+    button.disabled = true;
+    try {
+      viewerLoading ??= import("./viewer3d.js");
+      const { Viewer3D } = await viewerLoading;
+      viewer = new Viewer3D(document.getElementById("viewer3d"));
+    } catch (error) {
+      viewerLoading = null;
+      document.getElementById("project-status").textContent = "3D unavailable. The 2D builder remains available. " + error.message;
+      return;
+    } finally { button.disabled = false; }
+  }
   view3dActive = mode === "3d";
   document.getElementById("view2d-btn").classList.toggle("active", !view3dActive);
   document.getElementById("view3d-btn").classList.toggle("active", view3dActive);
@@ -146,9 +160,14 @@ function setCenterView(mode) {
 
   if (view3dActive) {
     viewer.render(rocket);
-    viewer.start();
+    if (activeTab === "build") {
+      try { viewer.start(); } catch (error) {
+        setCenterView("2d");
+        document.getElementById("project-status").textContent = "3D unavailable: " + error.message;
+      }
+    }
   } else {
-    viewer.stop();
+    viewer?.stop();
   }
 }
 document.getElementById("view2d-btn").addEventListener("click", () => setCenterView("2d"));
@@ -156,6 +175,7 @@ document.getElementById("view3d-btn").addEventListener("click", () => setCenterV
 
 // ---- Tabs --------------------------------------------------------------
 function switchTab(name) {
+  activeTab = name;
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.tab === name));
   document.getElementById("view-build").classList.toggle("active", name === "build");
@@ -164,11 +184,11 @@ function switchTab(name) {
   // Pause the 3D loop when the Builder tab is not visible; resume it when we
   // come back and 3D is the selected center view. This avoids a hidden RAF
   // loop rendering offscreen during flight.
-  if (name === "build" && view3dActive) {
+  if (name === "build" && view3dActive && viewer) {
     viewer.render(rocket);
     viewer.start();
   } else {
-    viewer.stop();
+    viewer?.stop();
   }
 }
 document.querySelectorAll(".tab").forEach((t) =>

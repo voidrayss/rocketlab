@@ -23,6 +23,7 @@ export class FlightView {
   }
 
   load(result) {
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     this.result = result;
     this.frame = 0;
     this.playing = false;
@@ -32,7 +33,8 @@ export class FlightView {
   }
 
   play() {
-    if (!this.result) return;
+    if (!this.result || this.playing) return;
+    if (this.frame >= this.result.samples.length - 1) this.frame = 0;
     this.playing = true;
     const loop = () => {
       if (!this.playing) return;
