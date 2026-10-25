@@ -30,7 +30,6 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   transition CP singularity, nose aliases/shared 2D profile, motor endpoint and
   RASP validation. See docs/NUMERICS.md and smoke-numerics.mjs.
 
-
 - `07a0161`: imported-CAD assembly/metadata: exact
   STEP/source/mesh persistence, density and transformed volume-centroid mass/CG,
   explicit internal or cylindrical body aerodynamic role, replace/add workflow,
@@ -41,15 +40,22 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   volume/mass/CG, absolute placement, editable geometry/material, builder/3D,
   native project persistence, STEP/STL/metadata export and restoration support.
 
-- Deployment preparation milestone (commit containing this entry): inactive
+- `0a94077`: deployment preparation: inactive
   manual/main-only GitHub Pages template, exact activation/rollback instructions,
   and local /rocketlab/ project-path browser test. Nothing enabled or deployed.
+
+- OpenRocket reference milestone (commit containing this entry): executed installed
+  OpenRocket 24.12 headlessly for matching conical/ogive static geometries;
+  recorded JAR hash, conditions, actual CP/mass/CG/Cd and fin centroid; reproducible
+  optional driver and frozen comparison tests. No OpenRocket implementation
+  copied or required by the website. See docs/OPENROCKET_VALIDATION.md.
 
 ## Current development phase
 
 Priority 4: advanced parametric manufacturing components and continued numerical
 validation. Imported-CAD assembly and guarded metadata restoration are operational
-with the explicit limitations below. Prepare deployment instructions without publishing.
+with the explicit limitations below. Pages preparation is complete but inactive.
+Static OpenRocket differences now provide evidence for further mass/drag review.
 Do not restart or replace the working CAD pipeline.
 
 ## Remaining roadmap (priority order)
@@ -62,14 +68,16 @@ Do not restart or replace the working CAD pipeline.
    internal/body roles, position/rotation/density, mass/CG and persistence are done.
 3. Metadata refinements: support more part families as their CAD generators arrive.
    Current v2 exact-source + properties + regeneration gate is operational for
-   bodies/fin cans, with custom fallback for changed source or legacy metadata.
+   bodies/fin cans/rings, with custom fallback for changed source or legacy metadata.
 4. Advanced CAD: root fillets, fin profiles, through-wall fins, mounts, rings,
    couplers, bulkheads, electronics and recovery compartments. Centering rings
    are complete; fit/structural checks are still manual.
 5. Interoperability: test actual external CAD applications where available;
    do not equate the separately packaged OCCT reader with a separate CAD kernel.
-6. OpenRocket reference cases and license review; compare assumptions and
-   mass/CG/CP/stability/drag/trajectory results before adopting formulas/code.
+6. OpenRocket: initial actual static cases/license review complete. Next compare
+   an equivalent full motor/recovery flight (apogee/speed/acceleration/duration)
+   and loaded stability with matched motor/environment. Static CP agrees within
+   0.1 mm; mass/CG/Cd differences are documented, not corrected by arbitrary fitting.
 7. Deployment activation awaits explicit approval. Template/instructions are
    prepared in docs/DEPLOYMENT.md and docs/deployment/github-pages.yml.example;
    no workflow exists under .github/workflows. Do not enable, publish, merge main
@@ -78,43 +86,37 @@ Do not restart or replace the working CAD pipeline.
 
 ## Test results
 
-- 2026-10-25, current checkout `1587450`: `node scripts/check.mjs` rerun;
-  all eight smoke tests plus JavaScript syntax checks PASS.
-- Prior milestone `1587450` reported (rerun when affected): real-kernel tests
-  for 2/3/4/6/12 fins, analytic volume/centroid, STEP topology/round trip,
-  independently packaged STEP-reader/tessellated-volume checks, adjustable
-  tessellation, invalid input tests PASS.
-- Prior milestone reported: installed Chrome online/offline checks for builder,
-  3D orbit/zoom, JSON controls/download/input assignment, graphs/playback, CAD
-  preview/download/import, stale-export protection, and CDN failures PASS.
-- Corrected numerical baseline: ~185.7 m C6 apogee, 108.05 g loaded mass,
-  ~0.99 cal. Historical 166.2 m included duplicated casing. Nine smoke tests
-  and source syntax checks PASS on 2026-10-25 after corrections, including exact
-  mass and zero-drag analytic flight reference, all 12 motor files, and invalid inputs.
+Verified 2026-10-25 (America/New_York):
 
-- 2026-10-25 numerical milestone: real-kernel and independent-reader checks
-  rerun PASS; Chrome online and CDN-blocked tests rerun PASS.
+- `node scripts/check.mjs`: all twelve smoke tests and source syntax PASS.
+  Includes numerical analytic references, all 12 shipped motor files, imported
+  geometry schema/mass/CG/transforms/persistence, rings, and static OpenRocket
+  CP/fin-centroid checks.
+- Real-kernel suite and separate OCCT importer PASS: 2/3/4/6/12-fin solids,
+  analytic volume/CG, STEP round trips, tube and ring volume/centroid, adjustable
+  tessellation, invalid geometry/STEP inputs.
+- Chrome online, CDN-blocked, and /rocketlab/ subpath runs PASS: builder/editing,
+  3D orbit/zoom, native JSON controls and downloads, graphs/playback, CAD worker,
+  STEP/STL/metadata downloads, source-fingerprint parameter restoration,
+  replacement without extra components, imported density/rotation and v2
+  project round trip, ring solid generation/persistence, and offline fallback.
+  OS file dialog is intercepted through DevTools, not visually automated.
+- Inactive Pages template parses via Ruby/Psych; manual-only trigger/main guard
+  confirmed. Actual deployment is untested and not enabled.
+- Actual installed OpenRocket 24.12 runner PASS for conical/ogive static cases.
+  CP deltas −0.047/+0.089 mm; fin centroid matches. Structure mass is RocketLab
+  82.249 vs OR 79.240 g (conical), 82.249 vs 88.848 g (ogive); Cd differs too.
+  No equivalent complete OpenRocket motor/recovery flight has been run.
+- Corrected C6 regression: ~185.7 m apogee, 108.05 g loaded, ~0.99 cal.
+  The historical 166.2 m included duplicated motor casing; see NUMERICS.md.
 
-- 2026-10-25 imported-CAD milestone: all ten smoke tests and source syntax PASS;
-  real-kernel/independent-reader suite PASS; Chrome online/offline suite PASS,
-  including source-fingerprint metadata restoration, replacement without extra
-  components, density/rotation and version-2 project round trip.
-
-- 2026-10-25 ring milestone: all eleven smoke tests/source syntax PASS; real
-  kernel ring volume/centroid/topology/STEP round trip PASS; existing independent
-  reader suite PASS; Chrome online/offline suite PASS including ring editor,
-  solid generation and project persistence.
-
-- 2026-10-25 deployment preparation: /rocketlab/ browser run PASS for all UI,
-  CAD, metadata, imported assembly, rings and persistence; inactive template
-  parsed with Ruby/Psych and manual-only/main guard confirmed. Actual GitHub
-  workflow deployment has not been run and remains unverified.
 
 ## Known bugs and limitations
 
-- Atmosphere only implements the troposphere; extrapolation is not valid at
-  arbitrary altitudes. Input validation/integration bounds require review.
-- Non-conical nose mass and non-ogive CP still use simplified approximations.
+- Atmosphere only implements the troposphere; high-altitude extrapolation and
+  its bounds are not validated. Exact flight-event interpolation remains pending.
+- All nose masses use thin conical shells, and ordinary body tubes use a thin
+  shell approximation. Haack/parabolic/elliptical CP still uses an ogive estimate.
 - Approximate shipped motor curves; drag/fin flutter are simplified; no wind,
   attitude dynamics, or independently validated structural safety predictions.
 - Imported CAD requires an explicit internal/body aerodynamic interpretation;
@@ -139,7 +141,7 @@ Do not restart or replace the working CAD pipeline.
   replicad dependency or npm install; Three.js remains at 0.160.0. See notices.
 - CAD STEP exported solids are checked by BRepCheck and read back before download.
   Read-back geometry, source parameters, and aerodynamic interpretations are
-  distinct. Current metadata version is rocketlab-cad v1.
+  distinct. Metadata v1 remains readable for comparison; v2 is exported with source hash.
 - Native format: rocketlab v1 remains supported; v2 embeds imported CAD assets
   and measured properties, capped at 50 MB/project and 20 MB/source STEP.
   All component IDs are fresh on load. Metadata v2 records exact STEP SHA-256;
@@ -148,7 +150,8 @@ Do not restart or replace the working CAD pipeline.
 ## GitHub and deployment
 
 - origin: https://github.com/voidrayss/rocketlab.git
-- Active/tracking branch: development/rocketlab-2; latest prior implementation b694799; this milestone prepares deployment only.
+- Active/tracking branch: development/rocketlab-2; latest prior implementation b694799, deployment preparation 0a94077;
+  this milestone records external reference validation.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.
@@ -162,7 +165,9 @@ Do not restart or replace the working CAD pipeline.
 1. Read AGENTS.md, this file, git status/history; preserve HANDOFF.md.
 2. Implement the next advanced manufacturing component or root-fillets with
    kernel/analytic consistency tests; preserve the imported-CAD assembly pipeline.
+   Review actual OpenRocket mass/CG differences before refining existing shell
+   models. A matched flight comparison is still needed; do not claim equivalence.
 3. Run smoke/syntax checks and relevant browser/CAD checks; update this document,
-   commit and push the milestone, then proceed to imported-CAD assembly support.
+   commit and push the milestone, then continue with the next unfinished task.
 4. Obtain temporary kernel/reader paths using docs/CAD.md if needed; never add
    downloaded binaries or credentials to the workspace history.

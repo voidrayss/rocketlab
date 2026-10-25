@@ -56,3 +56,9 @@ Remaining accuracy work includes shape-aware nose mass/CP, non-thin-shell tube
 mass outside fin cans, atmosphere above the documented troposphere, exact
 apogee/rail/touchdown event interpolation, real certified motor curves,
 wind/attitude/transonic modeling, and OpenRocket reference comparisons.
+
+
+Initial actual OpenRocket static comparisons are now available in
+[OPENROCKET_VALIDATION.md](OPENROCKET_VALIDATION.md). They confirm the fin centroid
+and close CP agreement for two slender cases while exposing remaining mass/drag
+model differences. They do not yet compare a complete flight.

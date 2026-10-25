@@ -222,10 +222,10 @@ pauses whenever the 3D view is hidden.
 ## Validation
 
 The default rocket (50 cm, 108.05 g loaded) on a **C6** motor simulates to ~185.7 m apogee,
-Mach 0.20, ~0.99 caliber stability — all in the realistic range for a small Estes
-rocket, which is a good sign the physics is behaving.
+Mach 0.20, ~0.99 caliber stability. These are approximate regression values; the
+starter is marginal near one caliber. See the numerical correction record.
 
-Two headless smoke tests back this up (run from the repo root with Node):
+Headless smoke tests cover the logic (run from the repo root with Node):
 
 ```bash
 node scripts/smoke.mjs           # baseline: CG/CP/stability/apogee finite
@@ -401,7 +401,7 @@ download. STEP import supports geometric inspection (volume, centroid, bounds, s
 and preview), with an explicit assembly and aerodynamic-role workflow described below.
 
 See [CAD workflows, tests, assumptions and deployment audit](docs/CAD.md) and
-[third-party notices](THIRD_PARTY.md). Run `node scripts/check.mjs` for all eight
+[third-party notices](THIRD_PARTY.md). Run `node scripts/check.mjs` for all twelve
 smoke tests and syntax checks. Real-kernel and Chrome integration checks are
 available separately and documented there. The website still needs no build
 step, npm installation, Node runtime, or backend.
@@ -418,9 +418,16 @@ material/density, position, rotation, actual source geometry and properties are
 retained in version-2 JSON projects. New companion metadata uses source
 fingerprints and a regeneration check before restoring original parametric
 body/fin-can parts. Details and limitations are in [docs/CAD.md](docs/CAD.md).
-Run `node scripts/check.mjs` for all eleven smoke tests and syntax checks.
+Run `node scripts/check.mjs` for all twelve smoke tests and syntax checks.
 
 
 **Centering rings** are now available as internal manufacturing parts with exact
 annular mass/CG, placement, editable dimensions/material, 3D display, JSON
 persistence, and solid STEP/STL/metadata export. They add no exterior aerodynamics.
+
+
+Static reference cases have now been executed in installed OpenRocket 24.12.
+CP and fin centroid agree closely for the two tested geometries; structure
+mass/CG and drag differences remain documented. Full flight equivalence is not
+yet verified. See [OpenRocket validation](docs/OPENROCKET_VALIDATION.md).
+Publication is prepared but inactive: [deployment instructions](docs/DEPLOYMENT.md).

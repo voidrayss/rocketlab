@@ -24,3 +24,11 @@ https://github.com/kovacsv/occt-import-js
 The app uses the published kernel without modifications. Future vendoring or
 redistribution of binary builds should retain upstream notices, license/exception
 texts, corresponding kernel/build sources, and the ability to replace the library.
+
+
+Optional reference validation invokes a locally installed **OpenRocket 24.12**
+(GPL-3.0-or-later with its documented data-packaging permission) in a separate
+process. No OpenRocket implementation, JAR, or runtime is vendored or loaded by
+the website. The benchmark driver was written for RocketLab using public API
+calls; stored reference data came from actual execution. See the release license:
+https://github.com/openrocket/openrocket/blob/release-24.12/LICENSE.TXT

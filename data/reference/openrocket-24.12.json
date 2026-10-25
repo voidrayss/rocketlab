@@ -1,0 +1,63 @@
+{
+  "engine": "OpenRocket 24.12",
+  "date": "2026-10-25",
+  "jarSha256": "b4528835f68717daa705c1e8e82bb43e47c794b3c2690dc8915124ce41610933",
+  "conditions": {
+    "mach": 0.1,
+    "aoaRadians": 0,
+    "temperatureK": 288.15,
+    "pressurePa": 101325,
+    "bodyFinish": "Regular paint (60 \u00b5m)",
+    "motor": "none",
+    "noseLengthM": 0.15,
+    "diameterM": 0.05,
+    "bodyLengthM": 0.35,
+    "noseWallM": 0.002,
+    "bodyWallM": 0.001,
+    "finCount": 3,
+    "rootChordM": 0.08,
+    "tipChordM": 0.04,
+    "spanM": 0.05,
+    "sweepM": 0.04,
+    "finThicknessM": 0.003,
+    "finCrossSection": "SQUARE",
+    "finFilletRadiusM": 0,
+    "noseDensity": 1200,
+    "bodyDensity": 680,
+    "finDensity": 600,
+    "noseShoulderLengthM": 0,
+    "noseX": 0,
+    "bodyX": 0.15,
+    "finRootX": 0.42
+  },
+  "cases": [
+    {
+      "shape": "CONICAL",
+      "cp_m": 0.3732984125407378,
+      "structureMass_kg": 0.07923965910738637,
+      "cg_m": 0.280104363164391,
+      "finLocalCG_m": 0.04888888888888887,
+      "finMass_kg": 0.016200000000000003,
+      "noseMass_kg": 0.026402405581222168,
+      "noseLocalCG_m": 0.10197051353340773,
+      "bodyMass_kg": 0.0366372535261642,
+      "Cd": 0.5261855559845081,
+      "finish": "Regular paint (60 \u00b5m)",
+      "noseShapeParameter": 0
+    },
+    {
+      "shape": "OGIVE",
+      "cp_m": 0.3663650580581236,
+      "structureMass_kg": 0.0888481796617696,
+      "cg_m": 0.25773612745915603,
+      "finLocalCG_m": 0.04888888888888887,
+      "finMass_kg": 0.016200000000000003,
+      "noseMass_kg": 0.0360109261356054,
+      "noseLocalCG_m": 0.09431244142478332,
+      "bodyMass_kg": 0.0366372535261642,
+      "Cd": 0.5172247486136924,
+      "finish": "Regular paint (60 \u00b5m)",
+      "noseShapeParameter": 1
+    }
+  ]
+}
