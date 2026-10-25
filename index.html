@@ -46,6 +46,7 @@
         <button data-add="body">+ Body</button>
         <button data-add="transition">+ Transition</button>
         <button data-add="fins">+ Fins</button>
+        <button data-add="finCan" title="Replaces separate tail fins; adds an inline sleeve section">+ Fin can</button>
       </div>
       <ul id="component-list" class="component-list"></ul>
 
@@ -76,6 +77,24 @@
         <div id="viewer3d" class="viewer3d"></div>
         <p class="hint">Drag to rotate &nbsp; scroll to zoom &nbsp; right-drag to pan</p>
       </div>
+      <details id="cad-panel" class="cad-panel">
+        <summary>Solid CAD · STEP / STL</summary>
+        <p class="muted">Select a body tube or fin can, then generate a solid. CAD loads on demand and needs internet. Dimensions are exported in millimeters.</p>
+        <label for="cad-tolerance">STL / preview chord tolerance (mm)</label>
+        <input id="cad-tolerance" type="number" min="0.01" max="2" step="0.01" value="0.1">
+        <div class="add-buttons">
+          <button id="cad-generate">Generate selected solid</button>
+          <button id="cad-step" disabled>Download STEP</button>
+          <button id="cad-stl" disabled>Download STL</button>
+          <button id="cad-metadata" disabled>Download metadata</button>
+          <button id="cad-import">Inspect STEP file</button>
+        </div>
+        <input id="cad-file" type="file" accept=".step,.stp" hidden>
+        <p id="cad-status" class="muted" role="status" aria-live="polite"></p>
+        <pre id="cad-properties"></pre>
+        <div id="cad-viewer" class="viewer3d"></div>
+        <p class="muted">Imported solids are inspected separately and do not change the rocket or its aerodynamic model. Flat fins have no root fillets; this is not a structural safety assessment.</p>
+      </details>
     </section>
 
     <section class="panel right-panel">

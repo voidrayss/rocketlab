@@ -1,0 +1,113 @@
+// Optional integration check: installed Chrome + Node, no npm dependencies.
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { readFile, writeFile, mkdtemp, readdir } from 'node:fs/promises';
+import { resolve, extname } from 'node:path';
+import { tmpdir } from 'node:os';
+import assert from 'node:assert/strict';
+const offline=process.argv.includes('--offline');
+const root=resolve('.'), dir=await mkdtemp(tmpdir()+'/rocketlab-browser-');
+const chrome=process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const server=createServer(async(req,res)=>{
+ try {
+  const pathname=new URL(req.url,'http://localhost').pathname;
+  const path=resolve(root,'.'+(pathname==='/'?'/index.html':decodeURIComponent(pathname)));
+  if(!path.startsWith(root+'/')) {res.writeHead(403);res.end();return;}
+  const body=await readFile(path);
+  res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.json':'application/json','.wasm':'application/wasm'})[extname(path)]||'text/plain');res.end(body);
+ } catch {res.writeHead(404);res.end();}
+});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const port=server.address().port;
+const proc=spawn(chrome,['--headless','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--use-angle=swiftshader','--enable-unsafe-swiftshader','--window-size=1440,1100',...(offline?['--host-resolver-rules=MAP unpkg.com ~NOTFOUND, MAP cdn.jsdelivr.net ~NOTFOUND']:[]),`--user-data-dir=${dir}/profile`,'about:blank'],{stdio:'ignore'});
+let ws;
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+async function until(fn, timeout=20000){const start=Date.now();while(Date.now()-start<timeout){const value=await fn();if(value)return value;await pause(100);}throw Error('Timed out waiting for browser condition');}
+try {
+ const debugPort=await until(async()=>{try{return (await readFile(dir+'/profile/DevToolsActivePort','utf8')).split('\n')[0];}catch{return false;}});
+ const targets=await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
+ ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);
+ await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
+ let id=0;const pending=new Map(),exceptions=[];let chooserCount=0;
+ ws.onmessage=({data})=>{const m=JSON.parse(data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(JSON.stringify(m.error))):p.resolve(m.result);}if(m.method==='Page.fileChooserOpened')chooserCount++;if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails.text);};
+ const call=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method,params}));});
+ const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression:'(() => eval('+JSON.stringify(expression)+'))()',awaitPromise:true,returnByValue:true,userGesture:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+ const waitText=(selector,text,timeout)=>until(()=>evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent.includes(${JSON.stringify(text)})`),timeout);
+ const downloaded=async suffix=>{const name=await until(async()=>(await readdir(dir)).find(f=>f.endsWith(suffix)));return dir+'/'+name;};
+ const choose=async(selector,path)=>{const {root}=await call('DOM.getDocument');const {nodeId}=await call('DOM.querySelector',{nodeId:root.nodeId,selector});await call('DOM.setFileInputFiles',{nodeId,files:[path]});};
+ await call('Runtime.enable');await call('Page.enable');await call('Page.setInterceptFileChooserDialog',{enabled:true});
+ await call('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:dir});
+ await call('Page.navigate',{url:`http://127.0.0.1:${port}/`});
+ await waitText('#analysis','Liftoff mass');await waitText('#motor-select','H128W');
+ if (offline) {
+  await click('#view3d-btn');await waitText('#project-status','3D unavailable');
+  assert(await evaluate('document.querySelector("#cad-2d").classList.contains("active")'));
+  await evaluate('document.querySelector("#component-list li:nth-child(2)").click();document.querySelector("#cad-panel").open=true;');
+  await click('#cad-generate');await waitText('#cad-status','CAD failed',30000);
+  assert(await evaluate('!document.querySelector("#cad-generate").disabled'));
+  assert.equal(exceptions.length,0,exceptions.join('\n'));
+  console.log('PASS: CDN-unreachable startup, 2D fallback, and recoverable worker CAD load failure');
+ } else {
+ await click('[data-add="finCan"]');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),3);
+ await evaluate('const count=document.querySelector("[data-field=count]");count.value="4";count.dispatchEvent(new Event("change"));');
+ await evaluate('const thick=document.querySelector("[data-field=thickness]");thick.value="0.004";thick.dispatchEvent(new Event("change"));');
+ await evaluate('const inner=document.querySelector("[data-field=innerDiameter]");inner.value="0.1";inner.dispatchEvent(new Event("change"));');
+ assert.equal(await evaluate('document.querySelector("[data-field=innerDiameter]").value'),'0.046');
+ await click('#view3d-btn');
+ await until(()=>evaluate('!!document.querySelector("#viewer3d canvas") || document.querySelector("#project-status").textContent.includes("unavailable")'),40000);
+ assert(await evaluate('!!document.querySelector("#viewer3d canvas")'),await evaluate('document.querySelector("#project-status").textContent'));
+ const rect=await evaluate('JSON.stringify(document.querySelector("#viewer3d canvas").getBoundingClientRect())');
+ const box=JSON.parse(rect), mx=box.x+box.width/2, my=box.y+box.height/2;
+ await call('Input.dispatchMouseEvent',{type:'mousePressed',x:mx,y:my,button:'left',clickCount:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:mx+60,y:my+20,button:'left',buttons:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:mx+60,y:my+20,button:'left',clickCount:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseWheel',x:mx,y:my,deltaY:-100,deltaX:0});
+ console.log('PASS: builder fin-can replacement, edits, and real WebGL viewer');
+ await click('#save-project-btn');
+ const jsonPath=await downloaded('.json');const project=JSON.parse(await readFile(jsonPath,'utf8'));
+ assert.equal(project.rocket.components.at(-1).count,4);assert.equal(project.rocket.components.at(-1).thickness,.004);
+ project.rocket.name='Browser round trip';const fixture=dir+'/import-project.json';await writeFile(fixture,JSON.stringify(project));
+ await click('#load-project-btn');await until(()=>chooserCount===1);
+ await choose('#project-file',fixture);await waitText('#project-status','Project loaded');
+ assert.equal(await evaluate('document.querySelector("#project-name").value'),'Browser round trip');
+ const bad=dir+'/invalid.json';await writeFile(bad,'{"format":"bad"}');await choose('#project-file',bad);await waitText('#project-status','Load failed');
+ assert.equal(await evaluate('document.querySelector("#project-name").value'),'Browser round trip');
+ console.log('PASS: JSON download, native file input round trip, invalid-import preservation');
+ await click('#launch-btn');
+ for(const type of ['altitude','velocity','acceleration','thrust','stability']) {
+  await evaluate(`const sel=document.querySelector('#plot-select');sel.value=${JSON.stringify(type)};sel.dispatchEvent(new Event('change'));`);
+  assert((await evaluate('document.querySelector("#plot-note").textContent')).length>10);
+ }
+ await click('#play-btn');await click('#play-btn');await pause(200);await click('#reset-btn');
+ await click('#back-btn');
+ console.log('PASS: five graph controls and playback/reset');
+ await evaluate('document.querySelector("#component-list li:last-child").click();document.querySelector("#cad-panel").open=true;');
+ await click('#cad-generate');
+ await until(()=>evaluate('!document.querySelector("#cad-generate").disabled'),100000);
+ assert(await evaluate('!document.querySelector("#cad-step").disabled'),await evaluate('document.querySelector("#cad-status").textContent'));
+ const props=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(props.valid && props.solids===1 && props.volumeMm3>0);
+ assert(await evaluate('!!document.querySelector("#cad-viewer canvas")'));
+ await click('#cad-step');await click('#cad-stl');await click('#cad-metadata');
+ const metadataFile=await until(async()=>(await readdir(dir)).find(f=>f.startsWith('rocketlab-finCan-') && f.endsWith('.json')));
+ const metadata=JSON.parse(await readFile(dir+'/'+metadataFile,'utf8'));
+ assert.equal(metadata.component.count,4);assert.equal(metadata.coordinateSystem.units,'mm');
+ await evaluate('const input=document.querySelector("[data-field=span]");input.value="0.055";input.dispatchEvent(new Event("change"));');
+ assert(await evaluate('document.querySelector("#cad-step").disabled'),'edited geometry must invalidate old exports');
+ const stepPath=await downloaded('.step');const step=await readFile(stepPath,'utf8');
+ assert(step.includes('MANIFOLD_SOLID_BREP') && step.startsWith('ISO-10303-21;'));
+ assert((await readFile(await downloaded('.stl'))).length>1000);
+ await click('#cad-import');await until(()=>chooserCount===2);
+ await choose('#cad-file',stepPath);await until(()=>evaluate('!document.querySelector("#cad-import").disabled'),100000);
+ await waitText('#cad-status','STEP imported');
+ const imported=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(Math.abs(imported.volumeMm3-props.volumeMm3)<props.volumeMm3*1e-6);
+ await evaluate('document.querySelector("#cad-viewer").scrollIntoView({block:"center"})');
+ const screenshot=await call('Page.captureScreenshot',{format:'png'});await writeFile(dir+'/verified.png',Buffer.from(screenshot.data,'base64'));
+ assert.equal(exceptions.length,0,exceptions.join('\n'));
+ console.log('PASS: CAD worker, B-rep preview, STEP/STL/metadata downloads, STEP import and volume');
+ console.log('Artifacts: '+dir);
+ }
+} finally {ws?.close();proc.kill();await new Promise(r=>server.close(r));}

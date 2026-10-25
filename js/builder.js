@@ -1,3 +1,4 @@
+import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 // builder.js — the CAD builder view.
 //
@@ -46,11 +47,18 @@ const FIELDS = {
   ],
 };
 
+FIELDS.finCan = [
+  { key: "length", label: "Sleeve length (m)", step: 0.005 },
+  { key: "diameter", label: "Sleeve outer diameter (m)", step: 0.001 },
+  { key: "innerDiameter", label: "Sleeve inner diameter (m)", step: 0.001 },
+  ...FIELDS.fins,
+];
 const LABELS = {
   [COMPONENT_TYPES.NOSE]: "Nose Cone",
   [COMPONENT_TYPES.BODY]: "Body Tube",
   [COMPONENT_TYPES.TRANSITION]: "Transition",
   [COMPONENT_TYPES.FINS]: "Fins",
+  finCan: "Integrated fin can",
 };
 
 export class Builder {
@@ -143,25 +151,29 @@ export class Builder {
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
 
-      else if (c.type === COMPONENT_TYPES.FINS) {
-        const bodyW = maxD * scale;
+      else if (c.type === COMPONENT_TYPES.FINS || c.type === "finCan") {
+        const finY = c.type === "finCan" ? y + (c.length - c.rootChord) * scale : y;
+        if (c.type === "finCan") {
+          ctx.strokeRect(cx - c.diameter * scale / 2, y, c.diameter * scale, c.length * scale);
+        }
+        const bodyW = (c.type === "finCan" ? c.diameter : maxD) * scale;
         const h = c.rootChord * scale;
         const span = c.span * scale;
         const sweep = c.sweep * scale;
         const tip = c.tipChord * scale;
         // left fin
         ctx.beginPath();
-        ctx.moveTo(cx - bodyW / 2, y);
-        ctx.lineTo(cx - bodyW / 2 - span, y + sweep);
-        ctx.lineTo(cx - bodyW / 2 - span, y + sweep + tip);
-        ctx.lineTo(cx - bodyW / 2, y + h);
+        ctx.moveTo(cx - bodyW / 2, finY);
+        ctx.lineTo(cx - bodyW / 2 - span, finY + sweep);
+        ctx.lineTo(cx - bodyW / 2 - span, finY + sweep + tip);
+        ctx.lineTo(cx - bodyW / 2, finY + h);
         ctx.closePath(); ctx.fill(); ctx.stroke();
         // right fin
         ctx.beginPath();
-        ctx.moveTo(cx + bodyW / 2, y);
-        ctx.lineTo(cx + bodyW / 2 + span, y + sweep);
-        ctx.lineTo(cx + bodyW / 2 + span, y + sweep + tip);
-        ctx.lineTo(cx + bodyW / 2, y + h);
+        ctx.moveTo(cx + bodyW / 2, finY);
+        ctx.lineTo(cx + bodyW / 2 + span, finY + sweep);
+        ctx.lineTo(cx + bodyW / 2 + span, finY + sweep + tip);
+        ctx.lineTo(cx + bodyW / 2, finY + h);
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }
@@ -226,6 +238,7 @@ export class Builder {
       return;
     }
     this.editorEl.innerHTML = `<strong>${LABELS[c.type]}</strong>`;
+    if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Inline sleeve section; wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
     for (const f of FIELDS[c.type]) {
       const label = document.createElement("label");
       label.textContent = f.label;
@@ -249,11 +262,25 @@ export class Builder {
         input.type = "number";
         input.step = f.step;
         input.value = c[f.key];
-        input.addEventListener("input", () => {
-          let v = parseFloat(input.value);
-          if (!isNaN(v)) { c[f.key] = f.int ? Math.round(v) : v; this.cb.onChange(); }
+        input.addEventListener("change", () => {
+          const v = Number(input.value);
+          if (!Number.isFinite(v)) return;
+          const candidate = { ...c, [f.key]: f.int ? Math.round(v) : v };
+          try {
+            if (c.type === "finCan") validateFinCan(candidate);
+            else if (v <= 0 && f.key !== "sweep") throw new Error("Dimension must be positive.");
+            Object.assign(c, candidate);
+            document.getElementById("project-status").textContent = "";
+            this.cb.onChange();
+          } catch (error) {
+            input.value = c[f.key];
+            document.getElementById("project-status").textContent = error.message;
+          }
         });
       }
+      input.id = `component-${c.id}-${f.key}`;
+      input.dataset.field = f.key;
+      label.htmlFor = input.id;
       this.editorEl.appendChild(input);
     }
   }

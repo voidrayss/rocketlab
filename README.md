@@ -5,7 +5,7 @@ a rocket from components in a lightweight 2D CAD view, watch its **stability**
 (CG/CP/caliber margin) update live, pick a **motor**, then **launch** and watch
 an animated flight with real-time telemetry.
 
-No install, no build step, no dependencies — it's plain HTML + JS + Canvas.
+No install or build step: plain HTML, CSS, ES modules, and Canvas. Optional 3D and CAD libraries load from pinned CDNs.
 
 ---
 
@@ -387,3 +387,22 @@ chart includes units, a zero line, and a method/assumption note. Stability uses
 six burn-time samples and does not represent attitude dynamics. Acceleration is
 recorded from the existing force calculation without changing the integrator.
 Run `node scripts/smoke-plots.mjs` to validate chart data and ranges.
+
+### Integrated fin can and solid CAD
+
+Add **Fin can** to replace separate tail fins with an inline hollow sleeve and
+attached fins. Edit its diameters, length, fin geometry/count/thickness, and
+material. Mass/CG, stability, reference area, drag estimate, and JSON projects
+include the new component without adding a duplicate aerodynamic fin set.
+
+Select a body tube or fin can and expand **Solid CAD · STEP / STL**. Generate a
+real OpenCascade B-rep solid, inspect its tessellation, and download STEP, STL,
+or parameter/material metadata. Exported STEP is reopened and validated before
+download. STEP import supports separate geometric inspection (volume, centroid,
+bounds, solid count and preview); it does not yet add arbitrary CAD to the rocket.
+
+See [CAD workflows, tests, assumptions and deployment audit](docs/CAD.md) and
+[third-party notices](THIRD_PARTY.md). Run `node scripts/check.mjs` for all eight
+smoke tests and syntax checks. Real-kernel and Chrome integration checks are
+available separately and documented there. The website still needs no build
+step, npm installation, Node runtime, or backend.

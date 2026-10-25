@@ -130,6 +130,18 @@ export class Viewer3D {
         mesh = this._buildBody(c);
       } else if (c.type === COMPONENT_TYPES.TRANSITION) {
         mesh = this._buildTransition(c);
+      } else if (c.type === "finCan") {
+        mesh = new THREE.Group();
+        const shape = new THREE.Shape();
+        shape.absarc(0, 0, c.diameter / 2, 0, Math.PI * 2, false);
+        const hole = new THREE.Path();
+        hole.absarc(0, 0, c.innerDiameter / 2, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+        const sleeve = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: c.length, bevelEnabled: false, curveSegments: 48 }), this._material(COLORS.fins));
+        sleeve.rotation.x = Math.PI / 2;
+        sleeve.position.y = -x0;
+        mesh.add(sleeve);
+        mesh.add(this._buildFins(c, c.diameter, x0 + c.length - c.rootChord));
       } else if (c.type === COMPONENT_TYPES.FINS) {
         mesh = this._buildFins(c, maxD, x0);
       }
@@ -253,6 +265,27 @@ export class Viewer3D {
     });
   }
 
+  // Display tessellation produced from a genuine B-rep, in an isolated CAD view.
+  renderCAD(data, properties) {
+    this.init();
+    this.lastRocket = null;
+    this._clearGroup(this.rocketGroup);
+    const positions = [];
+    for (let i = 0; i < data.positions.length; i += 3) {
+      positions.push(data.positions[i] / 1000, -data.positions[i + 2] / 1000, data.positions[i + 1] / 1000);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(data.indices);
+    geometry.computeVertexNormals();
+    this.rocketGroup.add(new THREE.Mesh(geometry, this._material(COLORS.fins)));
+    const [lo, hi] = properties.boundsMm;
+    this.rocketGroup.position.set(-(lo[0]+hi[0])/2000, (lo[2]+hi[2])/2000, -(lo[1]+hi[1])/2000);
+    const size = Math.max(...hi.map((v,i)=>(v-lo[i])/1000));
+    this._frameCamera(size, size / 4);
+    this.start();
+  }
+
   // --- Animation loop ---------------------------------------------------
   // Start the RAF loop only when the 3D view is shown. The `running` guard
   // ensures we never stack multiple loops if start() is called repeatedly.
@@ -307,6 +340,7 @@ export class Viewer3D {
       const child = group.children[i];
       this._clearGroup(child); // recurse into nested groups (fins)
       if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
       group.remove(child);
     }
   }

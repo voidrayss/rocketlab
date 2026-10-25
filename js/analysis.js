@@ -1,3 +1,4 @@
+import { finCanProperties } from "./fincan.js";
 // ===========================================================================
 // analysis.js: the educational analysis engine (DOM-free, pure logic).
 //
@@ -50,6 +51,7 @@ function componentMass(c) {
       const rAvg = (c.frontDiameter + c.rearDiameter) / 4;
       return 2 * PI * rAvg * c.wallThickness * c.length * MATERIALS[c.material];
     }
+    case COMPONENT_TYPES.FINCAN: return finCanProperties(c).volume * MATERIALS[c.material];
     case COMPONENT_TYPES.FINS: {
       const area = 0.5 * (c.rootChord + c.tipChord) * c.span;
       return area * c.thickness * c.count * MATERIALS[c.material];
@@ -64,6 +66,7 @@ const PART_NAMES = {
   [COMPONENT_TYPES.BODY]: "Body tube",
   [COMPONENT_TYPES.TRANSITION]: "Transition",
   [COMPONENT_TYPES.FINS]: "Fins",
+  [COMPONENT_TYPES.FINCAN]: "Integrated fin can",
 };
 
 // Per-part mass breakdown: array of { name, grams, percent }.
@@ -134,6 +137,7 @@ export function buildReport(rocket, motor) {
   else stabWord = "OVER-STABLE: it will weathercock strongly into the wind. Trim fin size or move mass rearward.";
 
   const warnings = [];
+  if (rocket.components.some(c => c.type === "finCan")) warnings.push("Fin cans are inline sleeve sections. Do not add another tube or fin set for the same physical part. Sleeve-step drag and structural strength are not validated; flutter uses the first fin set.");
   if (calibers < 1) warnings.push("Stability margin is below 1 caliber.");
 
   // Honesty note: curve motors come from the shipped .eng files, whose thrust

@@ -1,3 +1,4 @@
+import { runCAD } from "./cad/client.js";
 // ===========================================================================
 // main.js — wires everything together.
 //
@@ -7,7 +8,7 @@
 // view).
 // ===========================================================================
 
-import { defaultRocket, createNose, createBody, createTransition, createFins,
+import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan,
          totalLength } from "./rocket.js";
 import { motorOptions, getMotor, loadEngFiles } from "./motors.js";
 import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
@@ -19,6 +20,7 @@ import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
 let rocket = defaultRocket();
+let cadResult = null, cadSnapshot = null, cadViewer = null;
 let view3dActive = false; // whether the 3D view is currently showing
 
 // ---- Builder view ------------------------------------------------------
@@ -49,6 +51,7 @@ let activeTab = "build";
 // 3D scene too. Keeping this in one place means every edit path stays in sync.
 function refresh() {
   builder.render(rocket);
+  invalidateCAD();
   if (view3dActive && viewer) viewer.render(rocket);
 }
 
@@ -66,11 +69,20 @@ const factories = {
   body: createBody,
   transition: createTransition,
   fins: createFins,
+  finCan: createFinCan,
 };
 document.querySelectorAll("[data-add]").forEach((btn) => {
   btn.addEventListener("click", () => {
     const type = btn.dataset.add;
+    if ((type === "fins" || type === "finCan") && rocket.components.some(c => c.type === "finCan")) {
+      document.getElementById("project-status").textContent = "Edit or remove the existing fin can before adding another tail fin set.";
+      return;
+    }
     const comp = factories[type]();
+    if (type === "finCan") {
+      rocket.components = rocket.components.filter(c => c.type !== "fins");
+      document.getElementById("project-status").textContent = "Separate tail fins replaced by one inline fin-can sleeve. Rocket length increases by the sleeve length.";
+    }
     // Insert fins at the end, everything else before fins.
     if (type === "fins") {
       rocket.components.push(comp);
@@ -177,6 +189,7 @@ document.getElementById("view3d-btn").addEventListener("click", () => setCenterV
 // ---- Tabs --------------------------------------------------------------
 function switchTab(name) {
   activeTab = name;
+  if (name !== "build") cadViewer?.stop();
   document.querySelectorAll(".tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.tab === name));
   document.getElementById("view-build").classList.toggle("active", name === "build");
@@ -310,4 +323,80 @@ const plotSelect = document.getElementById("plot-select");
 plotSelect.addEventListener("change", () => {
   flight.plotType = plotSelect.value;
   if (flight.result) flight.drawPlot();
+});
+
+// CAD operations run in an optional worker; core builder startup stays offline.
+function selectedCADComponent() {
+  return rocket.components.find(c => c.id === builder.selectedId);
+}
+function invalidateCAD() {
+  if (cadSnapshot && JSON.stringify(selectedCADComponent()) !== cadSnapshot) {
+    cadResult = null; cadSnapshot = null;
+    for (const id of ["cad-step", "cad-stl", "cad-metadata"]) document.getElementById(id).disabled = true;
+    document.getElementById("cad-status").textContent = "Model changed. Generate the solid again before exporting.";
+    document.getElementById("cad-properties").textContent = "";
+    cadViewer?.stop();
+  }
+}
+function downloadCAD(bytes, name, type) {
+  const url = URL.createObjectURL(new Blob([bytes], {type}));
+  const link = document.createElement("a"); link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function showCADResult(result, note) {
+  document.getElementById("cad-properties").textContent = JSON.stringify(result.properties, null, 2);
+  document.getElementById("cad-status").textContent = note;
+  try {
+    const { Viewer3D } = await import("./viewer3d.js");
+    cadViewer ??= new Viewer3D(document.getElementById("cad-viewer"));
+    cadViewer.renderCAD(result.mesh, result.properties);
+    if (activeTab !== "build" || !document.getElementById("cad-panel").open) cadViewer.stop();
+  } catch (error) {
+    document.getElementById("cad-status").textContent += " 3D preview unavailable: " + error.message;
+  }
+}
+async function performCAD(job, snapshot = null) {
+  const controls = ["cad-generate", "cad-import", "cad-step", "cad-stl", "cad-metadata"];
+  for (const id of controls) document.getElementById(id).disabled = true;
+  cadResult = null; cadSnapshot = null;
+  document.getElementById("cad-status").textContent = "Loading CAD kernel / computing solid…";
+  document.getElementById("cad-properties").textContent = "";
+  try {
+    const result = await runCAD(job);
+    if (snapshot && snapshot !== JSON.stringify(selectedCADComponent())) throw new Error("Selection or dimensions changed during generation. Generate again.");
+    cadResult = result; cadSnapshot = snapshot;
+    await showCADResult(result, job.action === "import" ? "STEP imported as independent geometry. Properties are in mm and mm³; original parameters and materials cannot be inferred." : "Valid single solid. Exported STEP reopened successfully with matching volume. CAD coordinates: +Z along the sleeve, +X radial, millimeters.");
+    if (snapshot) for (const id of ["cad-step", "cad-stl", "cad-metadata"]) document.getElementById(id).disabled = false;
+  } catch (error) { document.getElementById("cad-status").textContent = "CAD failed: " + error.message; }
+  finally { for (const id of ["cad-generate", "cad-import"]) document.getElementById(id).disabled = false; }
+}
+document.getElementById("cad-generate").addEventListener("click", () => {
+  const component = selectedCADComponent();
+  if (!component || !["body", "finCan"].includes(component.type)) {
+    document.getElementById("cad-status").textContent = "Select a body tube or fin can in the component list first."; return;
+  }
+  performCAD({component: {...component}, toleranceMm: Number(document.getElementById("cad-tolerance").value)}, JSON.stringify(component));
+});
+for (const [id, key, ext, mime] of [["cad-step","step","step","application/step"],["cad-stl","stl","stl","model/stl"],["cad-metadata","metadata","json","application/json"]]) {
+  document.getElementById(id).addEventListener("click", () => {
+    invalidateCAD(); if (!cadResult || !cadSnapshot) return;
+    const component = JSON.parse(cadSnapshot);
+    const metadata = {format:"rocketlab-cad",version:1,rocketName:rocket.name,component,material:component.material,coordinateSystem:{units:"mm",axis:"+Z from sleeve front to rear",radial:"+X"},properties:cadResult.properties,tessellationToleranceMm:cadResult.toleranceMm,notice:"External edits may invalidate these parameters. Reinspect the STEP geometry."};
+    downloadCAD(key === "metadata" ? JSON.stringify(metadata,null,2) : cadResult[key], `rocketlab-${component.type}-${component.id}.${ext}`, mime);
+  });
+}
+const cadFile = document.getElementById("cad-file");
+document.getElementById("cad-import").addEventListener("click", () => cadFile.click());
+cadFile.addEventListener("change", async () => {
+  const file = cadFile.files[0]; if (!file) return;
+  try {
+    if (file.size > 20000000) throw new Error("STEP import limit is 20 MB.");
+    await performCAD({action:"import",bytes:new Uint8Array(await file.arrayBuffer()),toleranceMm:.1});
+  } catch(error) {document.getElementById("cad-status").textContent = error.message;}
+  finally {cadFile.value="";}
+});
+document.getElementById("component-list").addEventListener("click", invalidateCAD);
+document.getElementById("cad-panel").addEventListener("toggle", event => {
+  if (event.target.open && cadResult && activeTab === "build") cadViewer?.start();
+  else cadViewer?.stop();
 });

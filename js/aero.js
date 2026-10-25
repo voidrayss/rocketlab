@@ -1,3 +1,4 @@
+import { finCanProperties } from "./fincan.js";
 // ===========================================================================
 // aero.js — mass properties + aerodynamics.
 //
@@ -78,6 +79,12 @@ export function massProperties(rocket, extraMass = 0, extraMassX = null) {
         cx = x0 + c.length / 2;
         break;
       }
+      case COMPONENT_TYPES.FINCAN: {
+        const props = finCanProperties(c);
+        m = props.volume * MATERIALS[c.material];
+        cx = x0 + props.centroidX;
+        break;
+      }
       case COMPONENT_TYPES.FINS: {
         // Trapezoidal plate area * thickness * count.
         const area = 0.5 * (c.rootChord + c.tipChord) * c.span;
@@ -150,12 +157,12 @@ export function centerOfPressure(rocket) {
       cnSum += cn; cnXSum += cn * xcp;
     }
 
-    else if (c.type === COMPONENT_TYPES.FINS) {
+    else if (c.type === COMPONENT_TYPES.FINS || c.type === COMPONENT_TYPES.FINCAN) {
       // Barrowman fin term for N trapezoidal fins.
       const n = c.count;
       const s = c.span;
       const cr = c.rootChord, ct = c.tipChord;
-      const rBody = dRef / 2;
+      const rBody = (c.type === "finCan" ? c.diameter : dRef) / 2;
       // midchord sweep length
       const lm = Math.sqrt(s * s + (c.sweep + ct / 2 - cr / 2) ** 2);
 
@@ -165,7 +172,7 @@ export function centerOfPressure(rocket) {
       const cn = kfb * term;
 
       // Fin CP location along the root chord (Barrowman).
-      const xf = x0; // fin root leading edge position
+      const xf = x0 + (c.type === "finCan" ? c.length - c.rootChord : 0); // fin root leading edge position
       const xcp = xf
         + (c.sweep / 3) * ((cr + 2 * ct) / (cr + ct))
         + (1 / 6) * ((cr + ct) - (cr * ct) / (cr + ct));
@@ -222,8 +229,7 @@ export function dragCoefficient(rocket) {
     const fr = finenessRatio(rocket);
     if (fr < 4) cd += 0.02 * (4 - Math.min(fr, 4));
   }
-  const fins = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS);
-  if (fins) cd += 0.02 * fins.count;
+  for (const fins of rocket.components.filter(c => c.type === "fins" || c.type === "finCan")) cd += 0.02 * fins.count;
   return cd;
 }
 
@@ -267,7 +273,7 @@ export function wettedArea(rocket) {
         area += PI * (p0.r + p1.r) * slant; // 2*PI*rAvg*slant
       }
     }
-    else if (c.type === COMPONENT_TYPES.BODY) {
+    else if (c.type === COMPONENT_TYPES.BODY || c.type === COMPONENT_TYPES.FINCAN) {
       area += PI * c.diameter * c.length;
     }
     else if (c.type === COMPONENT_TYPES.TRANSITION) {
@@ -308,7 +314,7 @@ export function skinFrictionDrag(rocket, { velocity = 50, altitude = 0 } = {}) {
 //   meanAeroChord = (2/3) * cr * (1 + lambda + lambda^2) / (1 + lambda)
 // ---------------------------------------------------------------------------
 export function finGeometry(rocket) {
-  const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS);
+  const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS || c.type === COMPONENT_TYPES.FINCAN);
   if (!fin) return { aspectRatio: 0, taperRatio: 0, meanAeroChord: 0, finArea: 0 };
   const cr = fin.rootChord, ct = fin.tipChord, s = fin.span;
   const finArea = 0.5 * (cr + ct) * s;          // one trapezoidal panel
@@ -335,7 +341,7 @@ export function finGeometry(rocket) {
 // thickness / root chord.
 // ---------------------------------------------------------------------------
 export function flutterVelocity(rocket, { altitude = 0, shearModulus = null } = {}) {
-  const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS);
+  const fin = rocket.components.find(c => c.type === COMPONENT_TYPES.FINS || c.type === COMPONENT_TYPES.FINCAN);
   if (!fin) return { velocity: Infinity, G: 0 };
   const { aspectRatio: AR, taperRatio: lambda } = finGeometry(rocket);
   const { pressure: P, speedOfSound: a } = atmosphere(altitude);

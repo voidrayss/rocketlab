@@ -1,3 +1,4 @@
+import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 // rocket.js — the rocket component model (the "CAD" data model).
 //
@@ -23,6 +24,7 @@ export const COMPONENT_TYPES = {
   BODY: "body",
   TRANSITION: "transition",
   FINS: "fins",
+  FINCAN: "finCan",
 };
 
 let nextId = 1;
@@ -76,6 +78,15 @@ export function createFins({ count = 3, rootChord = 0.08, tipChord = 0.04,
                              material = "plywood" } = {}) {
   return { id: makeId(), type: COMPONENT_TYPES.FINS,
            count, rootChord, tipChord, span, sweep, thickness, material };
+}
+
+export function createFinCan({ length = 0.12, diameter = 0.05, innerDiameter = 0.046,
+  count = 3, rootChord = 0.08, tipChord = 0.04, span = 0.05, sweep = 0.04,
+  thickness = 0.003, material = "plastic" } = {}) {
+  const c = { id: makeId(), type: "finCan", length, diameter, innerDiameter,
+    count, rootChord, tipChord, span, sweep, thickness, material };
+  validateFinCan(c);
+  return c;
 }
 
 // A default starter rocket so the app opens with something flyable.
