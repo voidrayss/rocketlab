@@ -14,6 +14,7 @@ import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
 import { simulateFlight } from "./physics.js";
 import { Builder } from "./builder.js";
 import { FlightView } from "./flight.js";
+import { parseProject, serializeProject } from "./project.js";
 import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
@@ -259,3 +260,48 @@ document.getElementById("reset-btn").addEventListener("click", () => flight.rese
 // Start in the 2D view (offline-friendly); the user opts into 3D via the
 // toggle, which lazily boots the WebGL renderer and the animation loop.
 refresh();
+
+// Project replacement is atomic: parsing must succeed before shared state changes.
+const projectStatus = document.getElementById("project-status");
+const projectName = document.getElementById("project-name");
+const projectFile = document.getElementById("project-file");
+projectName.addEventListener("change", () => {
+  rocket.name = projectName.value.trim() || "Untitled Rocket";
+  projectName.value = rocket.name;
+});
+document.getElementById("save-project-btn").addEventListener("click", () => {
+  try {
+    rocket.name = projectName.value.trim() || "Untitled Rocket";
+    const url = URL.createObjectURL(new Blob([serializeProject(rocket)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = rocket.name.replace(/[^a-z0-9_-]/gi, "_") + ".json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    projectStatus.textContent = "Project saved as JSON.";
+  } catch (error) { projectStatus.textContent = "Save failed: " + error.message; }
+});
+document.getElementById("load-project-btn").addEventListener("click", () => projectFile.click());
+projectFile.addEventListener("change", async () => {
+  const file = projectFile.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 1000000) throw new Error("Project file exceeds 1 MB.");
+    const imported = parseProject(await file.text());
+    flight.reset();
+    flight.result = null;
+    flight.telemetryEl.textContent = "Launch the imported design to generate telemetry.";
+    flight.summaryEl.textContent = "";
+    flight.ctx.clearRect(0, 0, flight.canvas.width, flight.canvas.height);
+    flight.plotCtx.clearRect(0, 0, flight.plotCanvas.width, flight.plotCanvas.height);
+    rocket = imported;
+    builder.selectedId = null;
+    projectName.value = rocket.name;
+    onshapePreview.hidden = true;
+    populateMotorSelect();
+    refresh();
+    switchTab("build");
+    projectStatus.textContent = "Project loaded. Previous simulation cleared.";
+  } catch (error) { projectStatus.textContent = "Load failed: " + error.message; }
+  finally { projectFile.value = ""; }
+});

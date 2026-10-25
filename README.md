@@ -331,3 +331,50 @@ confirm the scaffolding stays correct and network-free.
 - An **engine designer** tab (chamber pressure → thrust) feeding the flight sim.
 ```
 ```
+
+
+## RocketLab 2.0 development milestones
+
+The standalone app still runs from a static HTTP server with no Node runtime,
+package manager, or build step. Node is used only for development checks.
+
+### Projects
+
+Use **Save JSON** in the Builder to download a versioned RocketLab project.
+Use **Load JSON** to reopen it. Files preserve the project name, motor ID, and
+all current component dimensions, materials, and nose shape parameters. Imported
+components receive fresh internal IDs. A successful import clears the previous
+flight results; launch again to simulate the imported design.
+
+Imports reject malformed files, unsupported versions, unknown components or
+materials, invalid dimensions, unavailable motors, and files larger than 1 MB.
+Wait for the local motor catalog to load before importing a curve-motor project.
+The current simulator has fixed UI settings; configurable simulation settings,
+custom motor embedding, and external CAD geometry are not part of version 1.
+
+### Reliability
+
+Three.js is imported only when requesting 3D. CDN or WebGL failures leave the
+2D builder usable. Flight playback ignores repeated Play clicks and cancels
+pending animation callbacks when loading another result.
+
+Additional framework-free checks:
+
+```bash
+node scripts/smoke-ui.mjs
+node scripts/smoke-project.mjs
+```
+
+All four original smoke tests and both additional tests pass on Node v24.22.1.
+Headless Chrome startup was verified with the Three.js CDN blocked: the Builder,
+analysis panel, local motor catalog, and project controls initialized successfully.
+Interactive 3D rendering and native file-picker/download interactions still need
+manual browser verification.
+
+Known numerical issues remain under investigation: simulation callers include
+spent motor casing mass in dryMass while the integrator adds full motor mass;
+equal-diameter transitions are singular in the CP calculation; canonical nose
+shape names are not consistently used by the 2D drawing and CP calculation.
+The 166.2 m C6 baseline is preserved in these UI/project milestones, not an
+independent validation of simulation accuracy. Fin-can solids, CAD kernel
+integration, and STEP interoperability remain planned.

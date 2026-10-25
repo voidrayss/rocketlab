@@ -32,6 +32,14 @@
   <!-- ===================== BUILDER VIEW ===================== -->
   <main id="view-build" class="view active">
     <section class="panel left-panel">
+      <h2>Project</h2>
+      <label for="project-name">Name</label>
+      <input id="project-name" type="text" maxlength="200" value="My First Rocket">
+      <div class="add-buttons">
+        <button id="save-project-btn">Save JSON</button>
+        <button id="load-project-btn">Load JSON</button>
+      </div>
+      <input id="project-file" type="file" accept=".json,application/json" hidden>
       <h2>Components</h2>
       <div class="add-buttons">
         <button data-add="nose">+ Nose</button>
