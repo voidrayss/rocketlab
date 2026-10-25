@@ -198,6 +198,33 @@ try {
  assert((await evaluate('document.querySelector("#part-properties").textContent')).includes((overhang.volumeMm3*.0012).toFixed(3)+' g'));
  await click('#cad-step');await click('#cad-stl');await click('#part-done');
  console.log('PASS: aft-overhang controls, disconnected rejection, true CAD extent and mass agreement');
+ await click('#component-list [data-type="finCan"]');await click('#open-part');
+ await evaluate('const input=document.querySelector("[data-field=planform]");input.value="rectangular";input.dispatchEvent(new Event("change"));');
+ assert.equal(await evaluate('document.querySelector("[data-field=tipChord]").value'),'0.12');
+ assert.equal(await evaluate('document.querySelector("[data-field=sweep]").value'),'0');
+ await evaluate('const input=document.querySelector("[data-field=leadingAngle]");input.value="30";input.dispatchEvent(new Event("change"));');
+ assert(Math.abs(Number(await evaluate('document.querySelector("[data-field=sweep]").value'))-Number(await evaluate('document.querySelector("[data-field=span]").value'))*Math.tan(Math.PI/6))<1e-6);
+ await evaluate('const input=document.querySelector("[data-field=trailingAngle]");input.value="0";input.dispatchEvent(new Event("change"));');
+ assert.equal(await evaluate('document.querySelector("[data-field=trailingAngle]").value'),'0.000');
+ await evaluate('const input=document.querySelector("[data-field=leadingAngle]");input.value="90";input.dispatchEvent(new Event("change"));');
+ assert.equal(await evaluate('document.querySelector("[data-field=leadingAngle]").value'),'30.000');
+ await evaluate('document.querySelector("#fin-search").open=true;');
+ for(const [field,value] of [['fin-min-margin',0],['fin-max-margin',10],['fin-max-mass',500],['fin-max-span',.2],['fin-max-root',.2]])await evaluate(`document.getElementById('${field}').value=${value};`);
+ await click('#fin-run-search');assert(await evaluate('!document.querySelector("#fin-apply-search").disabled'),await evaluate('document.querySelector("#fin-search-result").textContent'));
+ await click('#fin-apply-search');await waitText('#fin-search-result','Candidate applied');
+ await click('#part-live-solid');
+ await until(()=>evaluate('!document.querySelector("#cad-step").disabled'),100000);
+ const optimized=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(optimized.valid&&optimized.solids===1);
+ assert((await evaluate('document.querySelector("#part-properties").textContent')).includes((optimized.volumeMm3*.0012).toFixed(3)+' g'));
+ await evaluate('const input=document.querySelector("[data-field=thickness]");input.value=Number(input.value)*.9;input.dispatchEvent(new Event("change"));');
+ assert(await evaluate('document.querySelector("#cad-step").disabled'));
+ await until(()=>evaluate('!document.querySelector("#cad-step").disabled'),100000);
+ const regenerated=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
+ assert(regenerated.volumeMm3<optimized.volumeMm3&&regenerated.solids===1);
+ await click('#part-live-solid');await click('#part-done');
+ console.log('PASS: fin presets, consistent angle edits, invalid-angle rejection, constrained search/apply and automatic solid regeneration');
+
 
  await click('#view3d-btn');await until(()=>evaluate('!!document.querySelector("#viewer3d canvas")'),40000);
  const marker=await evaluate('({cg:Number(document.querySelector("#viewer3d canvas").dataset.cgM),cp:Number(document.querySelector("#viewer3d canvas").dataset.cpM),visible:document.querySelector("#viewer3d canvas").dataset.markersVisible})');

@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { cadJob } from '../js/cad/solid.js';
 import { createFinCan, createBody, createRing, createNose, noseConeProfile } from '../js/rocket.js';
+import {planformPatch} from '../js/fins.js';
 import {noseGeometry} from '../js/nose.js';
 import { finCanProperties } from '../js/fincan.js';
 const [loader,wasm,reader,readerWasm]=process.argv.slice(2);
@@ -41,6 +42,15 @@ for(const count of [2,3,4,6,12]) {
   assert(Math.abs(Math.abs(volume)-r.properties.volumeMm3)/r.properties.volumeMm3<.01,'independent tessellated volume must match within 1%');
  }
  console.log(`PASS: ${count}-fin single solid, analytic mass/CG, STEP round trip${independent?', independent parser/volume':''}`);
+}
+for(const preset of ['rectangular','trapezoidal','swept','clippedDelta']){
+ const base=createFinCan(),component={...base,...planformPatch(base,preset)};
+ const r=cadJob(oc,{component}),p=finCanProperties(component);
+ assert(r.properties.valid&&r.properties.solids===1);
+ assert(Math.abs(r.properties.volumeMm3-p.volume*1e9)<.00001);
+ assert(Math.abs(r.properties.centroidMm[2]-p.centroidX*1000)<1e-6);
+ if(independent)assert(independent.ReadStepFile(r.step,null).success);
+ console.log(`PASS: ${preset} preset solid, exact volume/centroid and STEP`);
 }
 for(const dimensions of [{finOffset:.08,rootChord:.12,tipChord:.08,sweep:.05},{finOffset:-.08,rootChord:.2,tipChord:.12,sweep:-.05}]){
  const c=createFinCan(dimensions),p=finCanProperties(c),r=cadJob(oc,{component:c});

@@ -135,7 +135,20 @@
     <section class="panel left-panel"><h2>Project parts</h2><div id="part-list" class="part-list"></div><div id="studio-actions-host"></div><div id="part-status-host"></div><button id="part-done">Done · return to Assembly</button><p class="muted">Edits apply live. Library-only parts do not contribute engineering mass or aerodynamics.</p></section>
     <section class="panel part-center"><h2 id="part-title">Select a part</h2>
       <label for="part-projection">View projection</label><select id="part-projection"><option value="perspective">Perspective</option><option value="orthographic">Orthographic</option></select>
-      <div id="part-viewer" class="viewer3d studio-viewer"></div><pre id="part-properties"></pre><div id="part-cad-host"></div>
+      <label><input id="part-live-solid" type="checkbox"> Regenerate selected solid after edits (loads optional CAD kernel)</label>
+      <div id="part-viewer" class="viewer3d studio-viewer"></div><pre id="part-properties"></pre>
+      <details id="fin-search" hidden><summary>Approximate static fin search</summary>
+        <label for="fin-objective">Objective</label><select id="fin-objective"><option value="mass">Minimum part mass / material</option><option value="stability">Maximum static stability within bounds</option></select>
+        <label for="fin-min-margin">Minimum margin (cal)</label><input id="fin-min-margin" type="number" step="0.1" value="1">
+        <label for="fin-max-margin">Maximum margin (cal)</label><input id="fin-max-margin" type="number" step="0.1" value="2.5">
+        <label for="fin-min-span">Minimum span (m)</label><input id="fin-min-span" type="number" step="0.005" value="0.01">
+        <label for="fin-max-span">Maximum span (m)</label><input id="fin-max-span" type="number" step="0.005" value="0.15">
+        <label for="fin-max-root">Maximum root chord (m)</label><input id="fin-max-root" type="number" step="0.005" value="0.2">
+        <label for="fin-max-mass">Maximum part mass (g)</label><input id="fin-max-mass" type="number" step="1" value="200">
+        <div class="add-buttons"><button id="fin-run-search">Evaluate candidates</button><button id="fin-apply-search" disabled>Apply candidate</button></div>
+        <p id="fin-search-result" class="muted" role="status"></p>
+        <p class="muted">Deterministic search using current flat-plate mass and Barrowman static stability. Drag reduction, manufacturability and structural strength are not validated objectives.</p>
+      </details><div id="part-cad-host"></div>
     </section>
     <section class="panel right-panel"><h2>Shared part parameters</h2><div id="part-editor-host"></div></section>
   </main>

@@ -67,6 +67,31 @@ retains a functional parameter editor with an explicit 3D-unavailable message.
 
 Nose shoulders and profile-based nose solids are now operational; see CAD.md.
 Supported fin axial overhang is also operational; see CAD.md. Root fillets,
-expanded planforms/cross-sections, fin search, motor catalog expansion and
-recovery settings remain.
+non-flat cross-sections, motor catalog expansion and recovery settings remain.
 No unimplemented geometry option is represented as a working solid feature.
+
+## Fin controls and static search
+
+Flat four-point fins support rectangular, trapezoidal, swept, clipped-delta and
+custom planform presets. A preset sets the ordinary root/tip/span/sweep values;
+manual geometry edits mark it custom. Leading/trailing angles are derived from
+those values and measured from radial. Editing leading angle drives sweep;
+editing trailing angle drives tip chord. Impossible tips and near-axial angles
+are rejected. Planform and cross-section are separate fields; elliptical outlines,
+airfoils, rounded/beveled edges and fillets remain unavailable.
+
+Part Studio offers a deterministic finite-grid search for minimum part mass
+(material volume for the fixed material), or maximum loaded static stability,
+subject to user span/root, part-mass and stability bounds. It uses the existing
+Barrowman and mass models, includes sleeve mass for fin cans, and preserves fin
+count, material, thickness and axial offset. It is an approximate candidate search,
+not a continuous/global optimum or drag, flight, strength or manufacturing
+validation. No feasible candidate leaves the part unchanged. Applying a result
+requires the same design, loaded motor and constraints used for the search.
+
+Enable **Regenerate selected solid after edits** to debounce optional kernel jobs
+in Part Studio for supported nose/body/ring/fin-can parts. This downloads the
+optional CAD kernel on demand, never at normal startup. The fast mesh updates
+immediately; exports are invalidated while the solid is stale. Automatic jobs
+use the latest selected part and discard results if the selection/dimensions
+changed during computation. Disable the option to return to manual generation.

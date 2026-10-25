@@ -457,3 +457,15 @@ Fin cans now support signed axial fin offsets and forward/aft overhang. Complete
 fin plates remain joined through a validated supported root interval. Mass/CG,
 CP, overall display bounds, and STEP/STL exports follow the same geometry;
 disconnected roots are rejected. See [CAD details](docs/CAD.md).
+
+### Fin presets and static candidate search
+
+Flat rectangular, trapezoidal, swept, clipped-delta and custom fins share the same
+geometry across the builder, viewer, mass/aerodynamics and fin-can solid exports.
+Leading/trailing angles are derived from dimensions; editing them changes sweep
+or tip chord consistently. Part Studio provides a deterministic constrained search
+for minimum part mass or maximum loaded static stability, with explicit apply.
+These are approximate static estimates, not drag or strength optimization.
+Opt-in automatic solid regeneration updates supported parts after edits.
+See [workspace details and limitations](docs/WORKSPACES.md#fin-controls-and-static-search).
+Elliptical outlines, non-flat sections and root fillets remain unimplemented.

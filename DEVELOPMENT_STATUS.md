@@ -63,17 +63,25 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   body-aware creation. Legacy noses preserve prior mass behavior. Curved profiles
   use 48 axial bands rather than analytic spline surfaces.
 
-- Fin-overhang milestone (commit containing this entry): signed root offsets,
+- `a522be4`: fin-overhang milestone: signed root offsets,
   complete unclipped plates with supported root connectors, analytic union
   volume/CG, actual CP positions, overall forward/aft bounds, body-based motor
   position/fineness, matching 2D/3D and validated STEP/STL geometry.
+
+- Fin-controls/search milestone (commit containing this entry): flat rectangular,
+  trapezoidal, swept, clipped-delta/custom presets; derived leading/trailing angle
+  edits; independent cross-section field with unsupported choices disabled;
+  deterministic constrained mass/static-stability search with explicit apply and
+  stale-state rejection; optional debounced selected-solid regeneration.
+  This is an approximate finite-grid search, not aerodynamic/structural validation.
 
 ## Current development phase
 
 Implement the two new user directives for Builder/CAD/manufacturing and Part
 Studio/Assembly. Shared state, constraints, recreation, workspaces and markers
-and shoulders are operational. Next: fin parameterization and search, then
-fin parameterization/profiles/search, authoritative motors and recovery settings.
+and shoulders are operational. Flat fin presets, consistent angles, constrained
+static candidate search and opt-in live CAD regeneration are also operational.
+Next: additional validated fin geometry, authoritative motors and recovery settings.
 Keep the existing CAD and numerical corrections intact.
 
 ## Remaining roadmap (current user priority)
@@ -84,8 +92,9 @@ Keep the existing CAD and numerical corrections intact.
 2. Refine cantilever/root stress and support recommendations; initial signed
    fin offsets/overhang, connected solids and engineering/display integration
    are complete. Connectivity alone is not structural validation.
-3. Fin angle controls, planform/cross-section options, root fillets, deterministic
-   objective/constraint-driven search. Do not claim high-fidelity drag/strength.
+3. Elliptical/rounded planforms, non-flat cross-sections and root fillets remain.
+   Flat presets/angle controls and deterministic mass/static-stability search are
+   complete. Drag/strength/manufacturability optimization remains unimplemented.
 4. Real sourced motor catalog expansion, file import, duplicate prevention,
    manufacturer/class filters and search; no invented manufacturer data.
 5. Recovery-system component/editor with mass/placement/cord data, deployment
@@ -102,12 +111,13 @@ Keep the existing CAD and numerical corrections intact.
 
 Verified 2026-10-25 (America/New_York):
 
-- `node scripts/check.mjs`: all fifteen smoke tests and source syntax PASS, including assembly constraints.
+- `node scripts/check.mjs`: all sixteen smoke tests and source syntax PASS, including assembly constraints.
   Includes numerical analytic references, all 12 shipped motor files, imported
   geometry schema/mass/CG/transforms/persistence, rings, and static OpenRocket
   CP/fin-centroid checks.
 - Real-kernel suite and separate OCCT importer PASS: 2/3/4/6/12-fin solids,
-  analytic volume/CG, STEP round trips, tube and ring volume/centroid, adjustable
+  four fin presets and supported overhangs, six nose families with joined hollow/
+  solid shoulders, analytic volume/CG, STEP round trips, tube/ring volume/centroid, adjustable
   tessellation, invalid geometry/STEP inputs.
 - Chrome online, CDN-blocked, and /rocketlab/ subpath runs PASS: builder/editing,
   3D orbit/zoom, native JSON controls and downloads, graphs/playback, CAD worker,
@@ -131,6 +141,12 @@ Verified 2026-10-25 (America/New_York):
 - Corrected C6 regression: ~185.7 m apogee, 108.05 g loaded, ~0.99 cal.
   The historical 166.2 m included duplicated motor casing; see NUMERICS.md.
 
+
+Latest fin-controls checks: 16 smoke tests/syntax PASS; real kernel/independent
+STEP reader PASS for four flat presets, overhangs and six nose families; Chrome
+online PASS including preset/angle rejection, search/apply and automatic selected
+solid generation; CDN-blocked fallback PASS. The project-subpath run also PASSes edits
+while automatic regeneration is already enabled.
 
 ## Known bugs and limitations
 
@@ -177,7 +193,8 @@ Verified 2026-10-25 (America/New_York):
 
 - origin: https://github.com/voidrayss/rocketlab.git
 - Active/tracking branch: development/rocketlab-2; latest prior implementation b694799, deployment preparation 0a94077;
-  9620f7a records external reference validation; this milestone adds workspaces.
+  9620f7a records external reference validation; ae91bfd adds workspaces,
+  20129db adds shoulders, a522be4 adds overhangs.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.
@@ -189,9 +206,8 @@ Verified 2026-10-25 (America/New_York):
 ## Next actions
 
 1. Read AGENTS.md, this file, status/history; preserve HANDOFF.md.
-2. Add consistent fin angles/planform presets and deterministic objective-driven
-   static searches; root fillets and additional cross-sections remain separate
-   geometry/engineering validation tasks.
+2. Extend validated fin geometry (root fillets/non-flat sections), then expand
+   sourced motors/import/filtering and recovery editor/simulation as ordered above.
 3. Continue the ordered roadmap above, updating this status and committing/
    pushing each tested milestone to development/rocketlab-2.
 4. CAD binaries/readers are temporary development utilities, not workspace or

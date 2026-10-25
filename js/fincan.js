@@ -1,9 +1,11 @@
+import {validateFinStyle} from "./fins.js";
 // Area centroid along the root chord for a uniform trapezoidal plate.
 export function finAxialCentroid({rootChord: cr, tipChord: ct, sweep}) {
   return (sweep * (cr + 2 * ct) + cr * cr + cr * ct + ct * ct) / (3 * (cr + ct));
 }
 // Manufacturing dimensions in meters, local to the sleeve; assembly may attach it over/inside a body.
 export function validateFinCan(c) {
+  validateFinStyle(c);
   for (const k of ['length', 'diameter', 'innerDiameter', 'rootChord', 'tipChord', 'span', 'thickness']) {
     if (!Number.isFinite(c[k]) || c[k] <= 0 || c[k] > 2) throw new Error(`Fin can: ${k} must be between 0 and 2 m.`);
   }

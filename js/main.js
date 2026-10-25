@@ -1,3 +1,4 @@
+import {searchFins} from "./optimize.js";
 import { applyAssembly, resolveAssembly } from "./assembly.js";
 import { editComponent, addComponent, deleteComponent, duplicateComponent, localPart } from "./components.js";
 import { bytesToBase64, base64ToBytes, stepHash, metadataComparison, verifyProjectAssets, PROJECT_LIMIT } from "./imported.js";
@@ -24,7 +25,7 @@ import { rocketFeatureScripts } from "./onshape/featurescript.js";
 // ---- Shared state ------------------------------------------------------
 let rocket = defaultRocket();
 let cadResult = null, cadSnapshot = null, cadViewer = null, cadMetadata = null;
-let studioViewer=null, studioLoading=null;
+let studioViewer=null, studioLoading=null, finSearchState=null, liveSolidTimer=null;
 let view3dActive = false; // whether the 3D view is currently showing
 
 // ---- Builder view ------------------------------------------------------
@@ -500,12 +501,15 @@ function updateStudio(){
   const list=document.getElementById("part-list");list.textContent="";
   for(const c of rocket.components){const button=document.createElement("button");button.textContent=(c.name||c.type)+(c.inAssembly===false?" · library":"");button.classList.toggle("active",c.id===builder.selectedId);button.addEventListener("click",()=>{builder.selectedId=c.id;refresh();});list.appendChild(button);}
   const c=selectedCADComponent();
+  document.getElementById("fin-search").hidden=!c||!["fins","finCan"].includes(c.type);
+  document.getElementById("fin-apply-search").disabled=!(finSearchState?.best&&finSearchState.id===c?.id&&finSearchState.snapshot===finSearchSnapshot());
   document.getElementById("part-title").textContent=c?(c.name||c.type):"Select a part";
   if(c){
     const properties=massProperties({components:[localPart(c)]});
     document.getElementById("part-properties").textContent=`Part identity: ${c.uid}\nMass: ${(properties.mass*1000).toFixed(3)} g\nLocal axial CG: ${(properties.cg*1000).toFixed(2)} mm\n${c.inAssembly===false?"Library only — excluded from assembly engineering":"Included in assembly"}\nChanges apply live to this same part in Assembly.`;
     if(activeTab==="part"&&studioViewer)studioViewer.renderPart(c);
   }else {document.getElementById("part-properties").textContent="No selected part.";studioViewer?.render({components:[]});}
+  queueLiveSolid();
 }
 async function openStudio(){
   if(studioViewer){studioViewer.start();studioViewer.grid.visible=false;return;}
@@ -529,3 +533,34 @@ document.getElementById("part-projection").addEventListener("change",event=>stud
 document.getElementById("show-markers").addEventListener("change",refresh);
 
 document.getElementById("delete-part").addEventListener("click",()=>{if(builder.selectedId!==null){deleteComponent(rocket,builder.selectedId);builder.selectedId=null;clearFlight();refresh();}});
+
+function finSearchSnapshot(){return JSON.stringify({id:builder.selectedId,motor:rocket.motorId,components:rocket.components.map(c=>({...c,cad:c.cad?{sha256:c.cad.sha256,properties:c.cad.properties}:undefined}))});}
+function finSearchOptions(){return {objective:document.getElementById("fin-objective").value,minMargin:Number(document.getElementById("fin-min-margin").value),maxMargin:Number(document.getElementById("fin-max-margin").value),minSpan:Number(document.getElementById("fin-min-span").value),maxSpan:Number(document.getElementById("fin-max-span").value),maxRoot:Number(document.getElementById("fin-max-root").value),maxMassKg:Number(document.getElementById("fin-max-mass").value)/1000};}
+document.getElementById("fin-run-search").addEventListener("click",()=>{
+  try{
+    const options=finSearchOptions(),result=searchFins(rocket,builder.selectedId,getMotor(rocket.motorId),options);
+    finSearchState={...result,id:builder.selectedId,snapshot:finSearchSnapshot(),options:JSON.stringify(options)};
+    document.getElementById("fin-apply-search").disabled=!result.best;
+    document.getElementById("fin-search-result").textContent=result.best?`${result.feasible}/${result.evaluated} candidates satisfy the model constraints. Candidate: ${(result.best.massKg*1000).toFixed(2)} g, ${result.best.margin.toFixed(3)} cal. Approximate static estimate; not flight or structural validation.`:`No feasible candidate among ${result.evaluated}. Adjust constraints; no design was changed.`;
+  }catch(error){finSearchState=null;document.getElementById("fin-apply-search").disabled=true;document.getElementById("fin-search-result").textContent=error.message;}
+});
+document.getElementById("fin-apply-search").addEventListener("click",()=>{
+  try{
+    if(!finSearchState?.best||finSearchState.snapshot!==finSearchSnapshot()||finSearchState.options!==JSON.stringify(finSearchOptions()))throw new Error("Design or constraints changed; run the search again.");
+    editComponent(rocket,finSearchState.id,finSearchState.best.patch);clearFlight();refresh();
+    document.getElementById("fin-search-result").textContent="Candidate applied to the shared part. Regenerate the solid before CAD export; no drag or strength improvement is claimed.";
+  }catch(error){document.getElementById("fin-search-result").textContent=error.message;}
+});
+
+function queueLiveSolid(){
+  clearTimeout(liveSolidTimer);
+  const c=selectedCADComponent();
+  if(activeTab!=="part"||!document.getElementById("part-live-solid").checked||!c||!["body","nose","finCan","ring"].includes(c.type)||JSON.stringify(c)===cadSnapshot)return;
+  liveSolidTimer=setTimeout(()=>{
+    if(activeTab!=="part"||!document.getElementById("part-live-solid").checked)return;
+    if(document.getElementById("cad-generate").disabled){queueLiveSolid();return;}
+    const latest=selectedCADComponent();if(!latest)return;
+    performCAD({component:{...latest},toleranceMm:Number(document.getElementById("cad-tolerance").value)},JSON.stringify(latest));
+  },400);
+}
+document.getElementById("part-live-solid").addEventListener("change",()=>{if(document.getElementById("part-live-solid").checked)document.getElementById("cad-panel").open=true;queueLiveSolid();});

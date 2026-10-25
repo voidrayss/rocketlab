@@ -1,3 +1,4 @@
+import {finAngles,anglePatch,planformPatch,PLANFORMS} from "./fins.js";
 import { resolveAssembly, assembled, finStart } from "./assembly.js";
 import { ringProperties } from "./rings.js";
 import { validateImported, importedPoint } from "./imported.js";
@@ -286,6 +287,7 @@ export class Builder {
       label.append(input,document.createTextNode(text));input.addEventListener("change",()=>this.commit(c,{[key]:input.checked}));this.editorEl.appendChild(label);
     }
     if(["nose","finCan","ring","body"].includes(c.type))this.renderAttachment(c,rocket);
+    if(["fins","finCan"].includes(c.type))this.renderFinTools(c);
 
     if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Sleeve wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
     if (c.type === "ring") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal annular solid: exact volume and midpoint centroid; no external drag or CP. Confirm clearances and placement against your body and motor mount.</p>`);
@@ -330,7 +332,7 @@ export class Builder {
             else if (c.type === "imported") validateImported(candidate);
             else if (c.type === "finCan") validateFinCan(candidate);
             else if (v <= 0 && !["sweep","finOffset"].includes(f.key)) throw new Error("Dimension must be positive.");
-            this.commit(c,{[f.key]:candidate[f.key]});
+            this.commit(c,{[f.key]:candidate[f.key],...(["fins","finCan"].includes(c.type)&&["rootChord","tipChord","sweep","span"].includes(f.key)?{planform:"custom"}:{})});
           } catch (error) {
             input.value = f.key==="finOffset"?(c.finOffset??finStart(c)):c[f.key];
             document.getElementById("project-status").textContent = error.message;
@@ -350,6 +352,21 @@ export class Builder {
   commit(c,patch){
     try {this.cb.onEdit(c.id,patch);document.getElementById("project-status").textContent="";}
     catch(error){document.getElementById("project-status").textContent=error.message;this.renderEditor(this.rocket);}
+  }
+  renderFinTools(c){
+    const section=document.createElement("fieldset"),legend=document.createElement("legend");legend.textContent="Fin planform and derived angles";section.appendChild(legend);
+    const label=document.createElement("label"),preset=document.createElement("select");label.textContent="Planform preset (sets dimensions)";preset.dataset.field="planform";
+    const names={custom:"Custom four-point",rectangular:"Rectangular",trapezoidal:"Trapezoidal",swept:"Swept",clippedDelta:"Clipped delta"};
+    for(const value of PLANFORMS){const o=document.createElement("option");o.value=value;o.textContent=names[value];o.selected=(c.planform||"custom")===value;preset.appendChild(o);}
+    const ellipse=document.createElement("option");ellipse.disabled=true;ellipse.textContent="Elliptical / rounded — not implemented";preset.appendChild(ellipse);
+    preset.addEventListener("change",()=>this.commit(c,planformPatch(c,preset.value)));label.appendChild(preset);section.appendChild(label);
+    const cross=document.createElement("label"),select=document.createElement("select");cross.textContent="Cross-section (independent of planform)";select.dataset.field="crossSection";
+    for(const [text,disabled] of [["Flat plate",false],["Rounded edges — planned",true],["Symmetric airfoil — planned",true],["Wedge / bevel — planned",true]]){const o=document.createElement("option");o.textContent=text;o.value="flat";o.disabled=disabled;select.appendChild(o);}cross.appendChild(select);section.appendChild(cross);
+    const angles=finAngles(c);
+    for(const edge of ["leading","trailing"]){const l=document.createElement("label"),input=document.createElement("input");l.textContent=(edge==="leading"?"Leading":"Trailing")+" edge sweep from radial (deg)";input.type="number";input.step=.5;input.value=angles[edge].toFixed(3);input.dataset.field=edge+"Angle";input.addEventListener("change",()=>{try{this.commit(c,anglePatch(c,edge,Number(input.value)));}catch(error){document.getElementById("project-status").textContent=error.message;this.renderEditor(this.rocket);}});l.appendChild(input);section.appendChild(l);}
+    const note=document.createElement("p");note.className="muted";note.textContent="Leading angle drives sweep distance. Trailing angle drives tip chord. Root/span remain independent; angles are always derived, never contradictory stored dimensions. Root fillets and non-flat sections remain unsupported.";section.appendChild(note);
+    const reset=document.createElement("button");reset.type="button";reset.textContent="Reset axial alignment";reset.addEventListener("click",()=>this.commit(c,{finOffset:c.type==="finCan"?null:0}));section.appendChild(reset);
+    this.editorEl.appendChild(section);
   }
   renderAttachment(c,rocket){
     const section=document.createElement("fieldset"),legend=document.createElement("legend");legend.textContent="Assembly relationship";section.appendChild(legend);
