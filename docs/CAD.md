@@ -43,8 +43,8 @@ centroid, bounds, and tessellation tolerance.
 
 **Inspect STEP file** accepts a local STEP/STP up to 20 MB. It imports actual
 B-rep geometry, validates it, reports solid count, volume (mm³), centroid/bounds
-(mm), and renders its tessellation. The imported geometry remains separate from
-the rocket and is not inferred to be a parametric/aerodynamic component.
+(mm), and renders its tessellation. Inspection remains separate until an explicit assembly action is chosen;
+see the imported-CAD assembly workflow below.
 
 ## Dependencies and zero-build architecture
 
@@ -103,11 +103,10 @@ is not automated. There is no project npm installation.
 
 ## Limitations and next work
 
-STEP import is an inspection workflow. Imported shapes and companion metadata
-are not embedded in native projects, edited parametrically, assigned to rocket
-assemblies, or used for aerodynamics yet. Automatic reconstruction of arbitrary
-CAD into rocket component parameters is not promised. Imported STEP names/colors
-and arbitrary product metadata are not preserved by this preview layer.
+Imported geometry now supports assembly placement, density/mass/CG, explicit
+internal/body aerodynamic interpretation, native-project persistence, and guarded
+metadata restoration (see below). Arbitrary aerodynamic recognition, foreign
+feature histories, and automatic external-edit reconstruction remain unsupported.
 
 Fin-root fillets, airfoil sections, slip-over sleeves, fit clearances, structural
 analysis, full-assembly exports, and CAD solids for noses/transitions remain to
@@ -128,3 +127,62 @@ http://localhost:8000, is a local static server, not a public website. An extern
 host linked outside GitHub cannot be identified without its URL/provider.
 Development changes are pushed only to `development/rocketlab-2`. No hosting
 settings or production deployments were changed.
+
+## Imported CAD in the assembly (2026-10-25)
+
+After inspecting STEP, choose **Replace selected component** (default) or
+**Add a separate physical part**, choose a material and aerodynamic interpretation,
+and click **Use imported CAD in rocket**. Replace removes the selected physical
+part rather than counting its old mass alongside the imported replacement.
+
+- **Internal** adds only measured volume × density to mass and CG. It does not
+  add stack length, reference area, CP, or drag. Its axial offset is an absolute
+  position from the nose; the user must confirm it fits inside the rocket.
+- **Body** is an explicit user-confirmed cylindrical aerodynamic proxy. Set its
+  stack length and diameter before attaching. These govern stack layout,
+  reference area and body wetted-area approximation, not the real CAD volume.
+  It supplies no fin or nose CP. Arbitrary STEP fins/noses are not inferred.
+
+The selected imported part's editor controls name, density (kg/m³), material,
+proxy length/diameter, axial/radial offsets, and X/Y/Z source rotations in degrees.
+Changing material resets density; density can then be overridden explicitly.
+External axial offset is relative to its stack start. Source geometry is centered
+radially on its bounding box and starts at minimum source Z, then rotated X/Y/Z;
+source +Z maps to the rocket's nose-to-tail axis. Mass uses exact saved B-rep
+volume in mm³ × 1e-9 × density, and axial CG uses the transformed saved centroid.
+The builder displays the proxy/centroid; the 3D viewer displays the actual mesh.
+Proxy dimensions must be reconsidered after rotations. Overlap/fit checks for
+arbitrary shapes are not automatic; adding a separate physical part is explicit.
+
+Native projects containing imported CAD use **rocketlab v2**, embedding original
+STEP bytes as Base64, SHA-256 fingerprint, measured properties, tessellation,
+placement, material/density, and loaded companion metadata. Other projects remain
+v1; both versions load. The file limit is now 50 MB, with each source STEP ≤20 MB.
+Project load verifies the source fingerprint before changing the assembly.
+Saved geometry properties/mesh are schema-checked and restored without running
+OpenCascade; source hashing detects byte corruption, not falsified geometric
+properties. Reinspect the source STEP when independent property verification is
+needed. This permits offline project loading and preserves original geometry.
+
+### Companion metadata restoration
+
+New metadata downloads use **rocketlab-cad v2**, including the exported STEP
+SHA-256 and original parameters/material. Inspect the STEP, then **Load companion
+metadata**. Restoration is enabled only when source bytes and measured
+volume/centroid/bounds/solid count match. **Restore original parametric part**
+regenerates the proposed body/fin-can solid and compares those properties again
+before applying the selected assembly action. Restored native parameters retain
+the source STEP hash as provenance. Changing geometry externally, changing source
+bytes, or incompatible parameters disables/restores with an error; the custom
+CAD workflow remains available. Version-1 metadata can be compared but cannot
+establish an unchanged source because it has no fingerprint.
+
+This does not automatically identify arbitrary CAD, reconstruct external feature
+history, restore foreign names/colors, or prove arbitrary source geometry has the
+same surfaces just because aggregate properties agree. The exact source hash is
+required too. No cross-vendor CAD application compatibility claim is added.
+
+Verified: new `smoke-imported.mjs` schema/transform/mass/CG/proxy/persistence and
+metadata tests, plus real Chrome original-parameter restoration, replacement
+without extra components, density/rotation edits, and native CAD project round
+trip. Existing real-kernel and independent-reader tests continue to pass.

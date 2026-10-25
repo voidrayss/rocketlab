@@ -51,6 +51,7 @@ function componentMass(c) {
       const rAvg = (c.frontDiameter + c.rearDiameter) / 4;
       return 2 * PI * rAvg * c.wallThickness * c.length * MATERIALS[c.material];
     }
+    case "imported": return c.cad.properties.volumeMm3 * 1e-9 * c.density;
     case COMPONENT_TYPES.FINCAN: return finCanProperties(c).volume * MATERIALS[c.material];
     case COMPONENT_TYPES.FINS: {
       const area = 0.5 * (c.rootChord + c.tipChord) * c.span;
@@ -62,6 +63,7 @@ function componentMass(c) {
 }
 
 const PART_NAMES = {
+  imported: "Imported CAD",
   [COMPONENT_TYPES.NOSE]: "Nose cone",
   [COMPONENT_TYPES.BODY]: "Body tube",
   [COMPONENT_TYPES.TRANSITION]: "Transition",
@@ -137,6 +139,7 @@ export function buildReport(rocket, motor) {
   else stabWord = "OVER-STABLE: it will weathercock strongly into the wind. Trim fin size or move mass rearward.";
 
   const warnings = [];
+  if (rocket.components.some(c => c.type === "imported")) warnings.push("Imported CAD mass uses saved kernel volume and selected density. Internal parts add mass only; external parts use a user-specified cylindrical aerodynamic proxy with no fin or nose CP. Confirm fit, placement, and aerodynamic assumptions. Project reload does not rerun the CAD kernel.");
   if (!s.launched) warnings.push("The rocket never lifted off the launch pad.");
   else if (!s.railCleared) warnings.push("The rocket did not clear the launch rail.");
   if (s.termination === "time-limit") warnings.push("Simulation time limit reached before landing.");

@@ -88,12 +88,23 @@
           <button id="cad-stl" disabled>Download STL</button>
           <button id="cad-metadata" disabled>Download metadata</button>
           <button id="cad-import">Inspect STEP file</button>
+          <button id="cad-load-metadata" disabled>Load companion metadata</button>
         </div>
         <input id="cad-file" type="file" accept=".step,.stp" hidden>
+        <input id="cad-metadata-file" type="file" accept=".json,application/json" hidden>
+        <label for="cad-assembly-mode">Assembly action (avoid duplicate physical parts)</label>
+        <select id="cad-assembly-mode"><option value="replace">Replace selected component</option><option value="add">Add a separate physical part</option></select>
+        <label for="cad-role">Imported part interpretation</label>
+        <select id="cad-role"><option value="internal">Internal mass only (no aerodynamic contribution)</option><option value="body">External cylindrical proxy (no fins/nose CP)</option></select>
+        <label for="cad-material">Material</label>
+        <select id="cad-material"><option value="plastic">plastic</option><option value="aluminum">aluminum</option><option value="fiberglass">fiberglass</option><option value="plywood">plywood</option><option value="balsa">balsa</option><option value="cardboard">cardboard</option></select>
+        <label for="cad-proxy-length">External proxy length (m, user-confirmed)</label><input id="cad-proxy-length" type="number" min="0.001" step="0.001" value="0.12">
+        <label for="cad-proxy-diameter">External proxy diameter (m, user-confirmed)</label><input id="cad-proxy-diameter" type="number" min="0.001" step="0.001" value="0.05">
+        <div class="add-buttons"><button id="cad-attach" disabled>Use imported CAD in rocket</button><button id="cad-restore" disabled>Restore original parametric part</button></div>
         <p id="cad-status" class="muted" role="status" aria-live="polite"></p>
         <pre id="cad-properties"></pre>
         <div id="cad-viewer" class="viewer3d"></div>
-        <p class="muted">Imported solids are inspected separately and do not change the rocket or its aerodynamic model. Flat fins have no root fillets; this is not a structural safety assessment.</p>
+        <p class="muted">STEP inspection does not change the rocket until you choose an assembly action and interpretation. An external cylindrical proxy does not represent arbitrary fins or nose aerodynamics. Flat fins have no root fillets; this is not a structural safety assessment.</p>
       </details>
     </section>
 

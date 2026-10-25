@@ -1,3 +1,4 @@
+import { importedPoint } from "./imported.js";
 // ===========================================================================
 // viewer3d.js - the interactive 3D view of the rocket.
 //
@@ -124,7 +125,18 @@ export class Viewer3D {
       const x0 = pos.get(c.id) ?? 0;
       let mesh = null;
 
-      if (c.type === COMPONENT_TYPES.NOSE) {
+      if (c.type === "imported") {
+        const positions = [];
+        const data = c.cad.mesh;
+        for (let i=0; i<data.positions.length; i+=3) {
+          const [axial,rx,ry] = importedPoint(c,data.positions.slice(i,i+3));
+          positions.push(rx,-(x0+axial),ry);
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+        geometry.setIndex(data.indices); geometry.computeVertexNormals();
+        mesh = new THREE.Mesh(geometry,this._material(0x8bd3b0));
+      } else if (c.type === COMPONENT_TYPES.NOSE) {
         mesh = this._buildNose(c);
       } else if (c.type === COMPONENT_TYPES.BODY) {
         mesh = this._buildBody(c);

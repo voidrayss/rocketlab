@@ -347,10 +347,11 @@ components receive fresh internal IDs. A successful import clears the previous
 flight results; launch again to simulate the imported design.
 
 Imports reject malformed files, unsupported versions, unknown components or
-materials, invalid dimensions, unavailable motors, and files larger than 1 MB.
+materials, invalid dimensions, unavailable motors, and files larger than 50 MB.
 Wait for the local motor catalog to load before importing a curve-motor project.
 The current simulator has fixed UI settings; configurable simulation settings,
-custom motor embedding, and external CAD geometry are not part of version 1.
+custom motor embedding, and external CAD geometry are not part of version 1;
+version 2 additionally retains imported CAD source, properties, placement, and metadata.
 
 ### Reliability
 
@@ -396,11 +397,25 @@ include the new component without adding a duplicate aerodynamic fin set.
 Select a body tube or fin can and expand **Solid CAD · STEP / STL**. Generate a
 real OpenCascade B-rep solid, inspect its tessellation, and download STEP, STL,
 or parameter/material metadata. Exported STEP is reopened and validated before
-download. STEP import supports separate geometric inspection (volume, centroid,
-bounds, solid count and preview); it does not yet add arbitrary CAD to the rocket.
+download. STEP import supports geometric inspection (volume, centroid, bounds, solid count
+and preview), with an explicit assembly and aerodynamic-role workflow described below.
 
 See [CAD workflows, tests, assumptions and deployment audit](docs/CAD.md) and
 [third-party notices](THIRD_PARTY.md). Run `node scripts/check.mjs` for all eight
 smoke tests and syntax checks. Real-kernel and Chrome integration checks are
 available separately and documented there. The website still needs no build
 step, npm installation, Node runtime, or backend.
+
+
+### Persistent development and imported CAD assemblies
+
+Start future development from [AGENTS.md](AGENTS.md) and
+[DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md).
+
+Inspected STEP parts can now replace a selected part or be added explicitly.
+Choose an internal mass-only role or supply an external cylindrical proxy;
+material/density, position, rotation, actual source geometry and properties are
+retained in version-2 JSON projects. New companion metadata uses source
+fingerprints and a regeneration check before restoring original parametric
+body/fin-can parts. Details and limitations are in [docs/CAD.md](docs/CAD.md).
+Run `node scripts/check.mjs` for all ten smoke tests and syntax checks.

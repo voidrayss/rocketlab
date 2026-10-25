@@ -1,3 +1,4 @@
+import { bytesToBase64, base64ToBytes, stepHash, metadataComparison, verifyProjectAssets, PROJECT_LIMIT } from "./imported.js";
 import { runCAD } from "./cad/client.js";
 // ===========================================================================
 // main.js — wires everything together.
@@ -8,7 +9,7 @@ import { runCAD } from "./cad/client.js";
 // view).
 // ===========================================================================
 
-import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan,
+import { defaultRocket, createNose, createBody, createTransition, createFins, createFinCan, createImported, layoutPositions, MATERIALS,
          totalLength } from "./rocket.js";
 import { motorOptions, getMotor, loadEngFiles } from "./motors.js";
 import { massProperties, dragCoefficient, referenceArea } from "./aero.js";
@@ -20,7 +21,7 @@ import { rocketFeatureScripts } from "./onshape/featurescript.js";
 
 // ---- Shared state ------------------------------------------------------
 let rocket = defaultRocket();
-let cadResult = null, cadSnapshot = null, cadViewer = null;
+let cadResult = null, cadSnapshot = null, cadViewer = null, cadMetadata = null;
 let view3dActive = false; // whether the 3D view is currently showing
 
 // ---- Builder view ------------------------------------------------------
@@ -303,8 +304,9 @@ projectFile.addEventListener("change", async () => {
   const file = projectFile.files[0];
   if (!file) return;
   try {
-    if (file.size > 1000000) throw new Error("Project file exceeds 1 MB.");
+    if (file.size > PROJECT_LIMIT) throw new Error("Project file exceeds 50 MB.");
     const imported = parseProject(await file.text());
+    await verifyProjectAssets(imported);
     flight.reset();
     flight.result = null;
     flight.telemetryEl.textContent = "Launch the imported design to generate telemetry.";
@@ -336,7 +338,7 @@ function selectedCADComponent() {
 function invalidateCAD() {
   if (cadSnapshot && JSON.stringify(selectedCADComponent()) !== cadSnapshot) {
     cadResult = null; cadSnapshot = null;
-    for (const id of ["cad-step", "cad-stl", "cad-metadata"]) document.getElementById(id).disabled = true;
+    for (const id of ["cad-step", "cad-stl", "cad-metadata", "cad-attach", "cad-load-metadata", "cad-restore"]) document.getElementById(id).disabled = true;
     document.getElementById("cad-status").textContent = "Model changed. Generate the solid again before exporting.";
     document.getElementById("cad-properties").textContent = "";
     cadViewer?.stop();
@@ -360,17 +362,20 @@ async function showCADResult(result, note) {
   }
 }
 async function performCAD(job, snapshot = null) {
-  const controls = ["cad-generate", "cad-import", "cad-step", "cad-stl", "cad-metadata"];
+  const controls = ["cad-generate", "cad-import", "cad-step", "cad-stl", "cad-metadata", "cad-attach", "cad-load-metadata", "cad-restore"];
   for (const id of controls) document.getElementById(id).disabled = true;
-  cadResult = null; cadSnapshot = null;
+  cadResult = null; cadSnapshot = null; cadMetadata = null;
   document.getElementById("cad-status").textContent = "Loading CAD kernel / computing solid…";
   document.getElementById("cad-properties").textContent = "";
   try {
     const result = await runCAD(job);
     if (snapshot && snapshot !== JSON.stringify(selectedCADComponent())) throw new Error("Selection or dimensions changed during generation. Generate again.");
+    result.sha256 = await stepHash(job.action === "import" ? job.bytes : result.step);
+    if (job.action === "import") { result.sourceStep = job.bytes; result.sourceName=job.filename; }
     cadResult = result; cadSnapshot = snapshot;
-    await showCADResult(result, job.action === "import" ? "STEP imported as independent geometry. Properties are in mm and mm³; original parameters and materials cannot be inferred." : "Valid single solid. Exported STEP reopened successfully with matching volume. CAD coordinates: +Z along the sleeve, +X radial, millimeters.");
+    await showCADResult(result, job.action === "import" ? "STEP imported for inspection. Choose an assembly action and explicit aerodynamic interpretation to use it in the rocket." : "Valid single solid. Exported STEP reopened successfully with matching volume. CAD coordinates: +Z along the sleeve, +X radial, millimeters.");
     if (snapshot) for (const id of ["cad-step", "cad-stl", "cad-metadata"]) document.getElementById(id).disabled = false;
+    else for (const id of ["cad-attach", "cad-load-metadata"]) document.getElementById(id).disabled = false;
   } catch (error) { document.getElementById("cad-status").textContent = "CAD failed: " + error.message; }
   finally { for (const id of ["cad-generate", "cad-import"]) document.getElementById(id).disabled = false; }
 }
@@ -385,7 +390,7 @@ for (const [id, key, ext, mime] of [["cad-step","step","step","application/step"
   document.getElementById(id).addEventListener("click", () => {
     invalidateCAD(); if (!cadResult || !cadSnapshot) return;
     const component = JSON.parse(cadSnapshot);
-    const metadata = {format:"rocketlab-cad",version:1,rocketName:rocket.name,component,material:component.material,coordinateSystem:{units:"mm",axis:"+Z from sleeve front to rear",radial:"+X"},properties:cadResult.properties,tessellationToleranceMm:cadResult.toleranceMm,notice:"External edits may invalidate these parameters. Reinspect the STEP geometry."};
+    const metadata = {format:"rocketlab-cad",version:2,stepSha256:cadResult.sha256,rocketName:rocket.name,component,material:component.material,coordinateSystem:{units:"mm",axis:"+Z from sleeve front to rear",radial:"+X"},properties:cadResult.properties,tessellationToleranceMm:cadResult.toleranceMm,notice:"External edits may invalidate these parameters. Reinspect the STEP geometry."};
     downloadCAD(key === "metadata" ? JSON.stringify(metadata,null,2) : cadResult[key], `rocketlab-${component.type}-${component.id}.${ext}`, mime);
   });
 }
@@ -395,7 +400,7 @@ cadFile.addEventListener("change", async () => {
   const file = cadFile.files[0]; if (!file) return;
   try {
     if (file.size > 20000000) throw new Error("STEP import limit is 20 MB.");
-    await performCAD({action:"import",bytes:new Uint8Array(await file.arrayBuffer()),toleranceMm:.1});
+    await performCAD({action:"import",filename:file.name,bytes:new Uint8Array(await file.arrayBuffer()),toleranceMm:.1});
   } catch(error) {document.getElementById("cad-status").textContent = error.message;}
   finally {cadFile.value="";}
 });
@@ -403,4 +408,72 @@ document.getElementById("component-list").addEventListener("click", invalidateCA
 document.getElementById("cad-panel").addEventListener("toggle", event => {
   if (event.target.open && cadResult && activeTab === "build") cadViewer?.start();
   else cadViewer?.stop();
+});
+
+function installCADComponent(component) {
+  const selected = selectedCADComponent();
+  const replace = document.getElementById("cad-assembly-mode").value === "replace";
+  if (replace && !selected) throw new Error("Select the physical component to replace, or choose Add a separate physical part.");
+  const components = replace ? rocket.components.map(c=>c.id===selected.id?component:c) : [...rocket.components,component];
+  // Validate the prospective assembly before changing shared state.
+  serializeProject({...rocket,components});
+  rocket.components=components; builder.selectedId=component.id;
+  flight.reset(); flight.result=null;
+  flight.telemetryEl.textContent="Launch the modified assembly to generate telemetry.";
+  flight.summaryEl.textContent="";
+  flight.ctx.clearRect(0,0,flight.canvas.width,flight.canvas.height);
+  flight.plotCtx.clearRect(0,0,flight.plotCanvas.width,flight.plotCanvas.height);
+  onshapePreview.hidden=true;
+  refresh();
+}
+document.getElementById("cad-attach").addEventListener("click",()=>{
+  try {
+    if(!cadResult?.sourceStep) throw new Error("Inspect a STEP file first.");
+    const aeroRole=document.getElementById("cad-role").value;
+    const selected=selectedCADComponent();
+    const material=document.getElementById("cad-material").value;
+    const component=createImported({
+      name:cadResult.sourceName || "Imported CAD", aeroRole,material,density:MATERIALS[material],
+      length:Number(document.getElementById("cad-proxy-length").value),
+      diameter:Number(document.getElementById("cad-proxy-diameter").value),
+      axialOffset:aeroRole==="internal" && selected ? layoutPositions(rocket).get(selected.id) ?? 0 : 0,
+      cad:{stepBase64:bytesToBase64(cadResult.sourceStep),sha256:cadResult.sha256,
+        properties:cadResult.properties,mesh:cadResult.mesh,metadata:cadMetadata},
+    });
+    installCADComponent(component);
+    document.getElementById("cad-status").textContent="Imported CAD is in the assembly. Confirm placement and density in its editor; aerodynamic role is " + aeroRole + ". Source STEP and measured properties will be saved in the project.";
+  } catch(error) {document.getElementById("cad-status").textContent="Assembly unchanged: "+error.message;}
+});
+const metadataFile=document.getElementById("cad-metadata-file");
+document.getElementById("cad-load-metadata").addEventListener("click",()=>metadataFile.click());
+metadataFile.addEventListener("change",async()=>{
+  const file=metadataFile.files[0]; if(!file)return;
+  document.getElementById("cad-restore").disabled=true;
+  try {
+    if(!cadResult?.sourceStep)throw new Error("Inspect a STEP file first.");
+    if(file.size>1000000)throw new Error("Metadata file exceeds 1 MB.");
+    const metadata=JSON.parse(await file.text());
+    const match=metadataComparison(metadata,cadResult);
+    cadMetadata=metadata;
+    document.getElementById("cad-restore").disabled=!match.canRestore;
+    document.getElementById("cad-status").textContent=match.canRestore
+      ? "STEP fingerprint and measured properties match companion metadata. Original parameters can be restored after a regeneration check."
+      : "Metadata does not establish an unchanged source: "+(match.propertiesMatch?"properties match, but source fingerprint is missing or different.":"measured geometry differs.")+" Use the custom CAD assembly workflow and confirm parameters manually.";
+  } catch(error) {document.getElementById("cad-status").textContent="Metadata unavailable: "+error.message;}
+  finally {metadataFile.value="";}
+});
+document.getElementById("cad-restore").addEventListener("click",async()=>{
+  document.getElementById("cad-restore").disabled=true;
+  try {
+    if(!cadResult?.sourceStep || !metadataComparison(cadMetadata,cadResult).canRestore)throw new Error("Unchanged STEP source and compatible metadata are required.");
+    const original=parseProject(JSON.stringify({format:"rocketlab",version:1,rocket:{name:"Restored CAD",motorId:rocket.motorId,components:[cadMetadata.component]}})).components[0];
+    const selectedId=builder.selectedId;
+    const regenerated=await runCAD({component:original});
+    if(builder.selectedId!==selectedId) throw new Error("Selection changed during regeneration. Try restoring again.");
+    const checked=metadataComparison({format:"rocketlab-cad",version:1,properties:regenerated.properties},cadResult);
+    if(!checked.propertiesMatch)throw new Error("Regenerated parameters differ from the imported geometry. Use custom CAD instead.");
+    original.sourceStepSha256=cadResult.sha256;
+    installCADComponent(original);
+    document.getElementById("cad-status").textContent="Original parametric part restored. STEP fingerprint and regenerated solid properties both matched; no extra physical part was added when using Replace.";
+  } catch(error) {document.getElementById("cad-status").textContent="Restore failed; assembly unchanged: "+error.message;}
 });

@@ -25,17 +25,23 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
 - `0b840bd`: permanent AGENTS.md instructions
   and this authoritative status/roadmap, based on the actual repository state.
 
-- Numerical correction milestone (commit containing this entry): mass accounting,
+- `ea74d9d`: mass accounting,
   exact fin centroid, pad support/liftoff outcome, boxcar burnout splitting,
   transition CP singularity, nose aliases/shared 2D profile, motor endpoint and
   RASP validation. See docs/NUMERICS.md and smoke-numerics.mjs.
 
 
+- Imported-CAD assembly/metadata milestone (commit containing this entry): exact
+  STEP/source/mesh persistence, density and transformed volume-centroid mass/CG,
+  explicit internal or cylindrical body aerodynamic role, replace/add workflow,
+  material/density and position/rotation editor, v2 native project support,
+  SHA-256 source checks, guarded original body/fin-can parameter restoration.
+
 ## Current development phase
 
-Priority 2: integrate imported CAD components and metadata into the rocket assembly.
-The confirmed initial numerical corrections are complete; additional accuracy
-work remains listed below.
+Priority 4: advanced parametric manufacturing components and continued numerical
+validation. Imported-CAD assembly and guarded metadata restoration are operational
+with the explicit limitations below. Prepare deployment instructions without publishing.
 Do not restart or replace the working CAD pipeline.
 
 ## Remaining roadmap (priority order)
@@ -43,11 +49,12 @@ Do not restart or replace the working CAD pipeline.
 1. Further numerical reliability: shape-aware nose mass/CP, exact shell masses,
    atmosphere range, event interpolation, and OpenRocket comparisons. Initial
    confirmed corrections are complete; see docs/NUMERICS.md.
-2. Imported CAD assembly components: explicit positioning/orientation, density,
-   mass/centroid integration, user-provided aerodynamic role/parameters, builder
-   and 3D support, native-project persistence of geometry and metadata.
-3. Metadata restoration: compare imported geometry with exported identity and
-   parameters; restore compatible parts, flag differences, retain custom fallback.
+2. Imported CAD refinements: broader aerodynamic proxies, fit/overlap inspection,
+   full source-geometry revalidation on project reload when requested. Initial
+   internal/body roles, position/rotation/density, mass/CG and persistence are done.
+3. Metadata refinements: support more part families as their CAD generators arrive.
+   Current v2 exact-source + properties + regeneration gate is operational for
+   bodies/fin cans, with custom fallback for changed source or legacy metadata.
 4. Advanced CAD: root fillets, fin profiles, through-wall fins, mounts, rings,
    couplers, bulkheads, electronics and recovery compartments.
 5. Interoperability: test actual external CAD applications where available;
@@ -77,6 +84,11 @@ Do not restart or replace the working CAD pipeline.
 - 2026-10-25 numerical milestone: real-kernel and independent-reader checks
   rerun PASS; Chrome online and CDN-blocked tests rerun PASS.
 
+- 2026-10-25 imported-CAD milestone: all ten smoke tests and source syntax PASS;
+  real-kernel/independent-reader suite PASS; Chrome online/offline suite PASS,
+  including source-fingerprint metadata restoration, replacement without extra
+  components, density/rotation and version-2 project round trip.
+
 ## Known bugs and limitations
 
 - Atmosphere only implements the troposphere; extrapolation is not valid at
@@ -84,8 +96,14 @@ Do not restart or replace the working CAD pipeline.
 - Non-conical nose mass and non-ogive CP still use simplified approximations.
 - Approximate shipped motor curves; drag/fin flutter are simplified; no wind,
   attitude dynamics, or independently validated structural safety predictions.
-- STEP import is separate inspection only. Native projects do not yet retain
-  imported CAD or restore companion metadata. No automatic aerodynamic inference.
+- Imported CAD requires an explicit internal/body aerodynamic interpretation;
+  arbitrary fin/nose aerodynamics and fit/overlap are not inferred. Body proxy
+  dimensions must be confirmed, especially after rotations. Saved project asset
+  hashes are checked but properties are not rerun through the kernel at reload.
+- Companion metadata v1 lacks a source fingerprint and cannot automatically restore.
+  Changed geometry uses custom CAD fallback. Native projects preserve loaded
+  metadata, source bytes/hash, properties and mesh; original external feature
+  history, names/colors and arbitrary source metadata are not reconstructed.
 - No fillets/airfoil fins; no full-assembly CAD export. Onshape remains scaffolding
   and does not recognize fin cans in its separate FeatureScript preview.
 - Cross-vendor Onshape/FreeCAD/SolidWorks/Fusion opening is unverified.
@@ -101,12 +119,15 @@ Do not restart or replace the working CAD pipeline.
 - CAD STEP exported solids are checked by BRepCheck and read back before download.
   Read-back geometry, source parameters, and aerodynamic interpretations are
   distinct. Current metadata version is rocketlab-cad v1.
-- Current native format is rocketlab v1 with validated components/fresh IDs.
+- Native format: rocketlab v1 remains supported; v2 embeds imported CAD assets
+  and measured properties, capped at 50 MB/project and 20 MB/source STEP.
+  All component IDs are fresh on load. Metadata v2 records exact STEP SHA-256;
+  parameter restoration also regenerates and compares solid properties.
 
 ## GitHub and deployment
 
 - origin: https://github.com/voidrayss/rocketlab.git
-- Active/tracking branch: development/rocketlab-2; latest implementation 1587450.
+- Active/tracking branch: development/rocketlab-2; latest prior implementation ea74d9d; this milestone adds imported CAD.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.
@@ -117,8 +138,8 @@ Do not restart or replace the working CAD pipeline.
 ## Next actions
 
 1. Read AGENTS.md, this file, git status/history; preserve HANDOFF.md.
-2. Implement persistent imported-CAD components with explicit position/density
-   and user-provided aerodynamic interpretation, preserving the source STEP.
+2. Implement the next advanced manufacturing component or root-fillets with
+   kernel/analytic consistency tests; preserve the imported-CAD assembly pipeline.
 3. Run smoke/syntax checks and relevant browser/CAD checks; update this document,
    commit and push the milestone, then proceed to imported-CAD assembly support.
 4. Obtain temporary kernel/reader paths using docs/CAD.md if needed; never add

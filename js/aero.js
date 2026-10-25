@@ -1,3 +1,4 @@
+import { importedPoint } from "./imported.js";
 import { finCanProperties, finAxialCentroid } from "./fincan.js";
 // ===========================================================================
 // aero.js — mass properties + aerodynamics.
@@ -79,6 +80,11 @@ export function massProperties(rocket, extraMass = 0, extraMassX = null) {
         cx = x0 + c.length / 2;
         break;
       }
+      case "imported": {
+        m = c.cad.properties.volumeMm3 * 1e-9 * c.density;
+        cx = x0 + importedPoint(c, c.cad.properties.centroidMm)[0];
+        break;
+      }
       case COMPONENT_TYPES.FINCAN: {
         const props = finCanProperties(c);
         m = props.volume * MATERIALS[c.material];
@@ -114,7 +120,7 @@ function totalLengthGuess(rocket) {
   const pos = layoutPositions(rocket);
   let maxEnd = 0;
   for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS) continue;
+    if (c.type === COMPONENT_TYPES.FINS || (c.type === "imported" && c.aeroRole === "internal")) continue;
     const x0 = pos.get(c.id) ?? 0;
     maxEnd = Math.max(maxEnd, x0 + c.length);
   }
@@ -273,7 +279,7 @@ export function wettedArea(rocket) {
         area += PI * (p0.r + p1.r) * slant; // 2*PI*rAvg*slant
       }
     }
-    else if (c.type === COMPONENT_TYPES.BODY || c.type === COMPONENT_TYPES.FINCAN) {
+    else if (c.type === COMPONENT_TYPES.BODY || c.type === COMPONENT_TYPES.FINCAN || (c.type === "imported" && c.aeroRole === "body")) {
       area += PI * c.diameter * c.length;
     }
     else if (c.type === COMPONENT_TYPES.TRANSITION) {

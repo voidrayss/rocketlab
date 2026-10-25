@@ -1,3 +1,4 @@
+import { validateImported, importedPoint } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 // builder.js — the CAD builder view.
@@ -53,12 +54,25 @@ FIELDS.finCan = [
   { key: "innerDiameter", label: "Sleeve inner diameter (m)", step: 0.001 },
   ...FIELDS.fins,
 ];
+FIELDS.imported = [
+  {key:"name",label:"Part name",type:"text"},
+  {key:"aeroRole",label:"Aerodynamic interpretation",type:"select",options:["internal","body"]},
+  {key:"material",label:"Material (resets density)",type:"select",options:Object.keys(MATERIALS)},
+  {key:"density",label:"Density (kg/m³)",step:10},
+  {key:"length",label:"External proxy / stack length (m)",step:.005},
+  {key:"diameter",label:"External proxy diameter (m)",step:.001},
+  {key:"axialOffset",label:"Axial offset / internal absolute position (m)",step:.005},
+  {key:"radialX",label:"Radial X offset (m)",step:.001},
+  {key:"radialY",label:"Radial Y offset (m)",step:.001},
+  ...["X","Y","Z"].map(axis=>({key:"rotation"+axis,label:"Source "+axis+" rotation (deg)",step:1})),
+];
 const LABELS = {
   [COMPONENT_TYPES.NOSE]: "Nose Cone",
   [COMPONENT_TYPES.BODY]: "Body Tube",
   [COMPONENT_TYPES.TRANSITION]: "Transition",
   [COMPONENT_TYPES.FINS]: "Fins",
   finCan: "Integrated fin can",
+  imported: "Imported CAD",
 };
 
 export class Builder {
@@ -114,7 +128,17 @@ export class Builder {
       ctx.strokeStyle = "#0e1116";
       ctx.lineWidth = 1.5;
 
-      if (c.type === COMPONENT_TYPES.NOSE) {
+      if (c.type === "imported") {
+        const axial = importedPoint(c,c.cad.properties.centroidMm)[0];
+        ctx.strokeStyle = "#8bd3b0";
+        if (c.aeroRole === "body") {
+          ctx.setLineDash([5,3]);
+          ctx.strokeRect(cx-c.diameter*scale/2,y,c.diameter*scale,c.length*scale);
+          ctx.setLineDash([]);
+        }
+        ctx.fillText("CAD",cx+18,y+axial*scale);
+        ctx.beginPath();ctx.arc(cx,y+axial*scale,4,0,Math.PI*2);ctx.fill();
+      } else if (c.type === COMPONENT_TYPES.NOSE) {
         const w = c.diameter * scale;
         ctx.beginPath();
         ctx.moveTo(cx, y);
@@ -200,7 +224,7 @@ export class Builder {
       if (c.id === this.selectedId) li.classList.add("selected");
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = LABELS[c.type];
+      name.textContent = c.type === "imported" ? c.name : LABELS[c.type];
       li.appendChild(name);
 
       const del = document.createElement("button");
@@ -230,6 +254,7 @@ export class Builder {
     }
     this.editorEl.innerHTML = `<strong>${LABELS[c.type]}</strong>`;
     if (c.type === "finCan") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Inline sleeve section; wall thickness = ${((c.diameter-c.innerDiameter)*500).toFixed(2)} mm. Flat fins, no fillets. Dimensions apply on Enter or blur.</p>`);
+    if (c.type === "imported") this.editorEl.insertAdjacentHTML("beforeend", `<p class="muted">Internal: mass only, absolute axial position. Body: explicit cylindrical aerodynamic proxy in the axial stack; offset is relative to its stack start. STEP geometry remains separate from that proxy. Rotations apply X then Y then Z.</p>`);
     for (const f of FIELDS[c.type]) {
       const label = document.createElement("label");
       label.textContent = f.label;
@@ -246,7 +271,14 @@ export class Builder {
         }
         input.addEventListener("change", () => {
           c[f.key] = input.value;
+          if (c.type === "imported" && f.key === "material") c.density = MATERIALS[input.value];
           this.cb.onChange();
+        });
+      } else if (f.type === "text") {
+        input = document.createElement("input"); input.type="text";input.maxLength=200;input.value=c[f.key];
+        input.addEventListener("change",()=>{
+          if(input.value.trim()) {c[f.key]=input.value.trim();this.cb.onChange();}
+          else input.value=c[f.key];
         });
       } else {
         input = document.createElement("input");
@@ -258,7 +290,8 @@ export class Builder {
           if (!Number.isFinite(v)) return;
           const candidate = { ...c, [f.key]: f.int ? Math.round(v) : v };
           try {
-            if (c.type === "finCan") validateFinCan(candidate);
+            if (c.type === "imported") validateImported(candidate);
+            else if (c.type === "finCan") validateFinCan(candidate);
             else if (v <= 0 && f.key !== "sweep") throw new Error("Dimension must be positive.");
             Object.assign(c, candidate);
             document.getElementById("project-status").textContent = "";

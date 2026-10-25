@@ -105,6 +105,28 @@ try {
  const imported=JSON.parse(await evaluate('document.querySelector("#cad-properties").textContent'));
  assert(Math.abs(imported.volumeMm3-props.volumeMm3)<props.volumeMm3*1e-6);
  await evaluate('document.querySelector("#cad-viewer").scrollIntoView({block:"center"})');
+ const metaPath=dir+'/'+metadataFile;
+ await choose('#cad-metadata-file',metaPath);await waitText('#cad-status','fingerprint');
+ assert(await evaluate('!document.querySelector("#cad-restore").disabled'));
+ await click('#cad-restore');await waitText('#cad-status','Original parametric part restored',30000);
+ assert.equal(await evaluate('document.querySelector("[data-field=span]").value'),'0.05');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),3);
+ // Reinspect then intentionally replace with a custom cylindrical proxy.
+ await choose('#cad-file',stepPath);await waitText('#cad-status','STEP imported',100000);
+ await evaluate('document.querySelector("#cad-role").value="body"');
+ await click('#cad-attach');await waitText('#cad-status','Imported CAD is in the assembly');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),3);
+ await evaluate('const density=document.querySelector("[data-field=density]");density.value="2700";density.dispatchEvent(new Event("change"));');
+ await evaluate('const rotation=document.querySelector("[data-field=rotationZ]");rotation.value="45";rotation.dispatchEvent(new Event("change"));');
+ await click('#save-project-btn');
+ const customPath=await until(async()=>(await readdir(dir)).find(f=>f==='Browser_round_trip.json'));
+ const custom=JSON.parse(await readFile(dir+'/'+customPath,'utf8'));
+ assert.equal(custom.version,2);assert.equal(custom.rocket.components.at(-1).type,'imported');
+ assert.equal(custom.rocket.components.at(-1).density,2700);assert.equal(custom.rocket.components.at(-1).rotationZ,45);
+ assert(custom.rocket.components.at(-1).cad.stepBase64.length>1000);
+ await choose('#project-file',dir+'/'+customPath);await waitText('#project-status','Project loaded');
+ assert.equal(await evaluate('document.querySelectorAll("#component-list li").length'),3);
+ console.log('PASS: fingerprint metadata restoration, imported assembly replacement, density/rotation, and native CAD project round trip');
  const screenshot=await call('Page.captureScreenshot',{format:'png'});await writeFile(dir+'/verified.png',Buffer.from(screenshot.data,'base64'));
  assert.equal(exceptions.length,0,exceptions.join('\n'));
  console.log('PASS: CAD worker, B-rep preview, STEP/STL/metadata downloads, STEP import and volume');

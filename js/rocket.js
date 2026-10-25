@@ -1,3 +1,4 @@
+import { validateImported } from "./imported.js";
 import { validateFinCan } from "./fincan.js";
 // ===========================================================================
 // rocket.js — the rocket component model (the "CAD" data model).
@@ -88,6 +89,16 @@ export function createFinCan({ length = 0.12, diameter = 0.05, innerDiameter = 0
   validateFinCan(c);
   return c;
 }
+
+export function createImported(options) {
+  const c = {name:"Imported CAD",material:"plastic",density:MATERIALS.plastic,
+    aeroRole:"internal",length:.1,diameter:.05,axialOffset:0,radialX:0,radialY:0,
+    rotationX:0,rotationY:0,rotationZ:0,...options,type:"imported",id:makeId()};
+  validateImported(c);
+  return c;
+}
+
+export function isInternal(c) { return c.type === "imported" && c.aeroRole === "internal"; }
 
 // A default starter rocket so the app opens with something flyable.
 export function defaultRocket() {
@@ -185,12 +196,14 @@ export function noseConeProfile(c, nPoints = 24) {
 // The outer diameter of a component at its rear (used to position the next one
 // and to find the max body diameter for stability normalization).
 export function rearDiameter(c) {
+  if (isInternal(c)) return 0;
   if (c.type === COMPONENT_TYPES.TRANSITION) return c.rearDiameter;
   if (c.type === COMPONENT_TYPES.FINS)       return 0; // fins don't set body radius
   return c.diameter;
 }
 
 export function frontDiameter(c) {
+  if (isInternal(c)) return 0;
   if (c.type === COMPONENT_TYPES.TRANSITION) return c.frontDiameter;
   if (c.type === COMPONENT_TYPES.FINS)       return 0;
   return c.diameter;
@@ -211,7 +224,7 @@ export function maxBodyDiameter(rocket) {
 export function totalLength(rocket) {
   let L = 0;
   for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS) continue;
+    if (c.type === COMPONENT_TYPES.FINS || isInternal(c)) continue;
     L += c.length;
   }
   return L;
@@ -223,10 +236,11 @@ export function layoutPositions(rocket) {
   const positions = new Map();
   let x = 0;
   for (const c of rocket.components) {
-    if (c.type === COMPONENT_TYPES.FINS) continue;
-    positions.set(c.id, x);
+    if (c.type === COMPONENT_TYPES.FINS || isInternal(c)) continue;
+    positions.set(c.id, x + (c.type === "imported" ? c.axialOffset : 0));
     x += c.length;
   }
+  for (const c of rocket.components) if (isInternal(c)) positions.set(c.id, c.axialOffset);
   // Fins: place their root trailing edge at the current body rear by default.
   const bodyEnd = x;
   for (const c of rocket.components) {
