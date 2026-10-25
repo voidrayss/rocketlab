@@ -37,9 +37,13 @@ CAD boundary units are millimeters. Consult AGENTS.md and docs/CAD.md.
   material/density and position/rotation editor, v2 native project support,
   SHA-256 source checks, guarded original body/fin-can parameter restoration.
 
-- Centering-ring milestone (commit containing this entry): exact internal annular
+- `b694799`: centering-ring milestone: exact internal annular
   volume/mass/CG, absolute placement, editable geometry/material, builder/3D,
   native project persistence, STEP/STL/metadata export and restoration support.
+
+- Deployment preparation milestone (commit containing this entry): inactive
+  manual/main-only GitHub Pages template, exact activation/rollback instructions,
+  and local /rocketlab/ project-path browser test. Nothing enabled or deployed.
 
 ## Current development phase
 
@@ -66,8 +70,10 @@ Do not restart or replace the working CAD pipeline.
    do not equate the separately packaged OCCT reader with a separate CAD kernel.
 6. OpenRocket reference cases and license review; compare assumptions and
    mass/CG/CP/stability/drag/trajectory results before adopting formulas/code.
-7. Prepare static GitHub Pages configuration/instructions without enabling,
-   deploying, merging main, or changing DNS absent explicit approval.
+7. Deployment activation awaits explicit approval. Template/instructions are
+   prepared in docs/DEPLOYMENT.md and docs/deployment/github-pages.yml.example;
+   no workflow exists under .github/workflows. Do not enable, publish, merge main
+   or change DNS without authorization.
 
 
 ## Test results
@@ -98,6 +104,11 @@ Do not restart or replace the working CAD pipeline.
   kernel ring volume/centroid/topology/STEP round trip PASS; existing independent
   reader suite PASS; Chrome online/offline suite PASS including ring editor,
   solid generation and project persistence.
+
+- 2026-10-25 deployment preparation: /rocketlab/ browser run PASS for all UI,
+  CAD, metadata, imported assembly, rings and persistence; inactive template
+  parsed with Ruby/Psych and manual-only/main guard confirmed. Actual GitHub
+  workflow deployment has not been run and remains unverified.
 
 ## Known bugs and limitations
 
@@ -137,13 +148,14 @@ Do not restart or replace the working CAD pipeline.
 ## GitHub and deployment
 
 - origin: https://github.com/voidrayss/rocketlab.git
-- Active/tracking branch: development/rocketlab-2; latest prior implementation 07a0161; this milestone adds centering rings.
+- Active/tracking branch: development/rocketlab-2; latest prior implementation b694799; this milestone prepares deployment only.
 - main remains at 4bc42ad. Routine tested commits/pushes on development authorized.
 - Audit 2026-10-25: GitHub Pages disabled; homepage unset; no deployments,
   Actions workflows, custom domain, or local hosting configuration identified.
 - Only supplied URL is http://localhost:8000, a local static server, not public.
   External hosting cannot be identified without a URL/provider. No deployments
   or hosting settings were changed. Any publication requires explicit approval.
+  Prepared instructions/template do not activate a workflow or publication.
 
 ## Next actions
 

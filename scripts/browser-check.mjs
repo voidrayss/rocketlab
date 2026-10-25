@@ -6,11 +6,13 @@ import { resolve, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 const offline=process.argv.includes('--offline');
+const basePath=process.argv.includes('--subpath')?'/rocketlab':'';
 const root=resolve('.'), dir=await mkdtemp(tmpdir()+'/rocketlab-browser-');
 const chrome=process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const server=createServer(async(req,res)=>{
  try {
-  const pathname=new URL(req.url,'http://localhost').pathname;
+  let pathname=new URL(req.url,'http://localhost').pathname;
+  if(basePath) { if(!pathname.startsWith(basePath+'/')) {res.writeHead(404);res.end();return;} pathname=pathname.slice(basePath.length); }
   const path=resolve(root,'.'+(pathname==='/'?'/index.html':decodeURIComponent(pathname)));
   if(!path.startsWith(root+'/')) {res.writeHead(403);res.end();return;}
   const body=await readFile(path);
@@ -38,7 +40,7 @@ try {
  const choose=async(selector,path)=>{const {root}=await call('DOM.getDocument');const {nodeId}=await call('DOM.querySelector',{nodeId:root.nodeId,selector});await call('DOM.setFileInputFiles',{nodeId,files:[path]});};
  await call('Runtime.enable');await call('Page.enable');await call('Page.setInterceptFileChooserDialog',{enabled:true});
  await call('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:dir});
- await call('Page.navigate',{url:`http://127.0.0.1:${port}/`});
+ await call('Page.navigate',{url:`http://127.0.0.1:${port}${basePath}/`});
  await waitText('#analysis','Liftoff mass');await waitText('#motor-select','H128W');
  if (offline) {
   await click('#view3d-btn');await waitText('#project-status','3D unavailable');

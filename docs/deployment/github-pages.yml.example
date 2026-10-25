@@ -1,0 +1,33 @@
+# INACTIVE TEMPLATE. Move to .github/workflows/pages.yml only after approval.
+name: Publish approved RocketLab to Pages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/configure-pages@v5
+      - name: Stage static website only
+        run: |
+          mkdir _site
+          cp index.html _site/
+          cp -R css js data _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Publish Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
